@@ -1,0 +1,16 @@
+spring.application.name=post-service
+
+# Database Configuration
+spring.datasource.url=jdbc:mysql://localhost:3306/facebook_clone
+spring.datasource.username=root
+spring.datasource.password=root
+spring.datasource.driver-class-name=com.mysql.cj.jdbc.Driver
+
+# JPA Configuration
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.show-sql=true
+spring.jpa.properties.hibernate.format_sql=true
+spring.jpa.properties.hibernate.dialect=org.hibernate.dialect.MySQLDialect
+
+# Server Configuration
+server.port=8080

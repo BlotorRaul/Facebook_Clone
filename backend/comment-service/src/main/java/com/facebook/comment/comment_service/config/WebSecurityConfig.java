@@ -1,0 +1,1 @@
+// Acest fișier poate fi șters complet, deoarece nu avem nevoie de configurare de securitate 
