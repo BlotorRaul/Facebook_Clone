@@ -1,0 +1,192 @@
+<div class="post">
+  <div class="post-header">
+    <div class="post-author">
+      <img [src]="post.author.avatarUrl" [alt]="post.author.name" class="author-avatar">
+      <div class="author-info">
+        <div class="author-name-time">
+          <a href="#" class="author-name">{{post.author.name}}</a>
+          <span class="user-score">(Score: {{getAuthorScore()}})</span>
+          <span class="post-time">{{post.timePosted | date:'MMM d, y, h:mm a'}}</span>
+        </div>
+        <div class="post-visibility">
+          <i class="fas fa-globe-americas"></i>
+        </div>
+      </div>
+    </div>
+    <div class="post-actions" *ngIf="canModifyPost">
+      <div *ngIf="isAdmin" class="post-status" [class]="getStatusClass()">
+        {{getStatusText()}}
+      </div>
+      <button class="action-button" (click)="onEditClick()" title="Edit post">
+        <i class="fas fa-edit"></i>
+      </button>
+      <button class="action-button" (click)="onDeleteClick()" title="Delete post">
+        <i class="fas fa-trash"></i>
+      </button>
+      <button *ngIf="isAdmin" 
+              class="action-button" 
+              (click)="toggleCommentsAvailability()" 
+              [title]="post.commentsDisabled ? 'Enable comments' : 'Disable comments'">
+        <i class="fas" [class.fa-comment-slash]="post.commentsDisabled" [class.fa-comment]="!post.commentsDisabled"></i>
+      </button>
+    </div>
+  </div>
+
+  <div class="post-content" *ngIf="!isEditing">
+    <p class="post-title" *ngIf="post.title">{{post.title}}</p>
+    <p>{{post.content}}</p>
+    <div class="post-tags" *ngIf="post.tags && post.tags.length > 0">
+      <span class="tag" *ngFor="let tag of post.tags">{{tag.name}}</span>
+    </div>
+    <img *ngIf="post.imageUrl" [src]="post.imageUrl" [alt]="'Post by ' + post.author.name" class="post-image">
+  </div>
+
+  <div class="edit-form" *ngIf="isEditing">
+    <textarea [(ngModel)]="editContent" class="edit-textarea"></textarea>
+    <div class="edit-actions">
+      <button (click)="saveEdit()" class="save-button">Save</button>
+      <button (click)="cancelEdit()" class="cancel-button">Cancel</button>
+    </div>
+  </div>
+
+  <div class="post-stats">
+    <div class="likes-info" *ngIf="post.likesCount > 0">
+      <span class="like-icon">
+        <i class="fas fa-thumbs-up"></i>
+      </span>
+      <span class="likes-count">{{post.likesCount}}</span>
+    </div>
+    <div class="comments-shares-info">
+      <span *ngIf="post.commentsCount > 0" class="comments-count">
+        {{post.commentsCount}} {{post.commentsCount === 1 ? 'comment' : 'comments'}}
+      </span>
+    </div>
+  </div>
+
+  <div class="interaction-divider"></div>
+
+  <div class="interaction-buttons">
+    <button class="interaction-button" 
+            (click)="likePost()" 
+            [class.active]="post.likedBy.includes(currentUser?.name || '')"
+            [class.disabled]="!canVoteOnPost()"
+            [title]="!canVoteOnPost() ? 'You cannot like your own post' : ''">
+      <i class="far fa-thumbs-up" [class.fas]="post.likedBy.includes(currentUser?.name || '')"
+         [class.active-icon]="post.likedBy.includes(currentUser?.name || '')"></i>
+      <span [class.active-text]="post.likedBy.includes(currentUser?.name || '')">
+        {{post.likedBy.includes(currentUser?.name || '') ? 'Liked' : 'Like'}}
+      </span>
+    </button>
+    <button class="interaction-button" 
+            (click)="toggleComments()" 
+            [class.disabled]="post.commentsDisabled"
+            [title]="post.commentsDisabled ? 'Comments are disabled' : ''">
+      <i class="far fa-comment-alt"></i>
+      <span>Comment</span>
+    </button>
+    <button class="interaction-button">
+      <i class="fas fa-share"></i>
+      <span>Share</span>
+    </button>
+  </div>
+
+  <div class="interaction-divider"></div>
+
+  <div class="comments-section" *ngIf="showComments && !post.commentsDisabled">
+    <div class="add-comment">
+      <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name" class="commenter-avatar">
+      <div class="comment-input-container">
+        <div class="comment-input-wrapper">
+          <input type="text" 
+                 [(ngModel)]="newComment" 
+                 placeholder="Write a comment..."
+                 (keyup.enter)="addComment()"
+                 class="comment-input">
+          <div class="comment-tools">
+            <label class="image-upload" title="Add image">
+              <i class="fas fa-camera"></i>
+              <input type="file" (change)="onCommentImageSelected($event)" accept="image/*" hidden>
+            </label>
+            <button class="send-comment" (click)="addComment()" [disabled]="!newComment.trim() && !commentImage">
+              <i class="fas fa-paper-plane"></i>
+            </button>
+          </div>
+        </div>
+        <div *ngIf="commentImage" class="comment-image-preview">
+          <img [src]="commentImage" alt="Comment image">
+          <button class="remove-image" (click)="removeCommentImage()">×</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="comments-list">
+      <div class="comment" *ngFor="let comment of post.comments" [class.highlight]="comment.id === highlightedCommentId">
+        <img [src]="comment.author.avatarUrl" [alt]="comment.author.name" class="commenter-avatar">
+        <div class="comment-content">
+          <div class="comment-main">
+            <div class="comment-header">
+              <a href="#" class="commenter-name">{{comment.author.name}}</a>
+              <div class="comment-actions" *ngIf="canModifyComment(comment)">
+                <button class="action-button" (click)="onEditCommentClick(comment)">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button class="action-button" (click)="deleteComment(comment)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+            <div *ngIf="!isEditingComment || editingCommentId !== comment.id" class="comment-text">
+              <p>{{comment.content}}</p>
+              <img *ngIf="comment.imageUrl" [src]="comment.imageUrl" alt="Comment image" class="comment-image">
+            </div>
+            <div *ngIf="isEditingComment && editingCommentId === comment.id" class="edit-comment-form">
+              <textarea [(ngModel)]="editCommentContent" class="edit-textarea"></textarea>
+              <div class="edit-actions">
+                <button (click)="saveCommentEdit(comment)" class="save-button">Save</button>
+                <button (click)="cancelCommentEdit()" class="cancel-button">Cancel</button>
+              </div>
+            </div>
+          </div>
+          <div class="comment-footer">
+            <div class="comment-actions-row">
+              <button class="action-link" 
+                      (click)="likeComment(comment)" 
+                      [class.active]="comment.likedBy.includes(currentUser?.name || '')"
+                      [class.disabled]="!canVoteOnComment(comment)"
+                      [title]="!canVoteOnComment(comment) ? 'You cannot like your own comment' : ''">
+                Like
+              </button>
+              <button class="action-link" 
+                      (click)="dislikeComment(comment)"
+                      [class.active]="comment.dislikedBy.includes(currentUser?.name || '')"
+                      [class.disabled]="!canVoteOnComment(comment)"
+                      [title]="!canVoteOnComment(comment) ? 'You cannot dislike your own comment' : ''">
+                Dislike
+              </button>
+              <span class="dot">·</span>
+              <span class="comment-time">{{comment.timePosted | date:'shortTime'}}</span>
+            </div>
+            <div class="reactions-info" *ngIf="comment.likes > 0 || comment.dislikes > 0">
+              <span *ngIf="comment.likes > 0" class="likes-count">
+                <i class="fas fa-thumbs-up"></i>
+                {{comment.likes}}
+              </span>
+              <span *ngIf="comment.dislikes > 0" class="dislikes-count">
+                <i class="fas fa-thumbs-down"></i>
+                {{comment.dislikes}}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.user-score {
+  font-size: 0.8em;
+  color: #65676b;
+  margin-left: 5px;
+}
+</style>

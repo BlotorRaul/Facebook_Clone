@@ -1,0 +1,446 @@
+.auth-container {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  padding: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+  min-height: 100vh;
+  background-color: #f0f2f5;
+}
+
+.login-section, .signup-section {
+  background-color: white;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  width: 45%;
+}
+
+h2 {
+  color: #1877f2;
+  margin-bottom: 20px;
+  font-size: 24px;
+}
+
+.form-group {
+  margin-bottom: 15px;
+}
+
+input[type="email"],
+input[type="password"],
+input[type="text"] {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #dddfe2;
+  border-radius: 6px;
+  font-size: 16px;
+  margin-bottom: 10px;
+}
+
+.name-group {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.name-group input {
+  width: 50%;
+}
+
+.birthday-group, .gender-group {
+  margin-bottom: 15px;
+}
+
+.birthday-group label, .gender-group label {
+  display: block;
+  color: #606770;
+  font-size: 12px;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.birthday-selects {
+  display: flex;
+  gap: 10px;
+}
+
+.birthday-selects select {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #dddfe2;
+  border-radius: 4px;
+}
+
+.gender-options {
+  display: flex;
+  gap: 15px;
+}
+
+.gender-options label {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #dddfe2;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 14px;
+}
+
+button {
+  width: 100%;
+  padding: 12px;
+  background-color: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  margin-top: 10px;
+}
+
+button:disabled {
+  background-color: #e4e6eb;
+  cursor: not-allowed;
+}
+
+button:hover:not(:disabled) {
+  background-color: #166fe5;
+}
+
+.error-message {
+  color: #ff0000;
+  font-size: 14px;
+  margin-bottom: 10px;
+}
+
+@media (max-width: 768px) {
+  .auth-container {
+    flex-direction: column;
+    padding: 10px;
+  }
+
+  .login-section, .signup-section {
+    width: 100%;
+    margin-bottom: 20px;
+  }
+
+  .name-group {
+    flex-direction: column;
+  }
+
+  .name-group input {
+    width: 100%;
+  }
+
+  .birthday-selects {
+    flex-direction: column;
+  }
+
+  .gender-options {
+    flex-direction: column;
+  }
+}
+
+.facebook-login {
+  min-height: 100vh;
+  background-color: #f0f2f5;
+}
+
+/* Header styles */
+.header {
+  background-color: #3b5998;
+  padding: 12px 0;
+}
+
+.header-content {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+}
+
+.logo h1 {
+  color: white;
+  font-size: 40px;
+  font-weight: bold;
+  margin: 0;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.form-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.form-group input {
+  padding: 8px;
+  border: 1px solid #dddfe2;
+  border-radius: 4px;
+  font-size: 14px;
+  height: 24px;
+}
+
+.form-group button {
+  background-color: #4267b2;
+  color: white;
+  border: 1px solid #29487d;
+  border-radius: 2px;
+  padding: 4px 16px;
+  font-weight: bold;
+  cursor: pointer;
+  height: 24px;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+}
+
+.form-group button:hover {
+  background-color: #365899;
+}
+
+.form-group button:disabled {
+  background-color: #9cb4d8;
+  border-color: #9cb4d8;
+  cursor: not-allowed;
+}
+
+.login-error {
+  color: #ff0000;
+  font-size: 12px;
+}
+
+.login-options {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12px;
+}
+
+.keep-logged-in {
+  color: white;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.forgot-password {
+  color: #9cb4d8;
+  text-decoration: none;
+}
+
+.forgot-password:hover {
+  text-decoration: underline;
+}
+
+/* Main content styles */
+.main-content {
+  padding: 40px 0;
+}
+
+.container {
+  max-width: 980px;
+  margin: 0 auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 0 16px;
+  gap: 40px;
+}
+
+.left-content {
+  flex: 1;
+  padding-top: 40px;
+}
+
+.left-content h2 {
+  font-size: 28px;
+  line-height: 32px;
+  color: #1c1e21;
+  margin: 0;
+}
+
+.right-content {
+  flex: 1;
+}
+
+.signup-container {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  padding: 20px;
+}
+
+.signup-container h2 {
+  font-size: 36px;
+  line-height: 1.2;
+  margin: 0;
+  color: #1c1e21;
+}
+
+.signup-container p {
+  color: #606770;
+  font-size: 15px;
+  margin: 10px 0 20px;
+}
+
+.signup-container form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.name-inputs {
+  display: flex;
+  gap: 10px;
+}
+
+.name-inputs input {
+  flex: 1;
+}
+
+.signup-container input,
+.signup-container select {
+  padding: 11px;
+  border: 1px solid #ccd0d5;
+  border-radius: 5px;
+  font-size: 15px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.birthday-section,
+.gender-section {
+  margin-top: 10px;
+}
+
+.birthday-section label,
+.gender-section label {
+  color: #606770;
+  font-size: 12px;
+  font-weight: normal;
+  margin-bottom: 5px;
+  display: block;
+}
+
+.birthday-inputs {
+  display: flex;
+  gap: 10px;
+}
+
+.birthday-inputs select {
+  flex: 1;
+}
+
+.birthday-help {
+  color: #385898;
+  text-decoration: none;
+  font-size: 11px;
+  margin-top: 4px;
+  display: inline-block;
+}
+
+.birthday-help:hover {
+  text-decoration: underline;
+}
+
+.gender-inputs {
+  display: flex;
+  gap: 16px;
+}
+
+.gender-inputs label {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #ccd0d5;
+  border-radius: 5px;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #1c1e21;
+}
+
+.signup-button {
+  background: linear-gradient(#67ae55, #578843);
+  color: white;
+  border: 1px solid #3b6e22;
+  border-radius: 5px;
+  padding: 12px;
+  font-size: 18px;
+  font-weight: bold;
+  margin-top: 10px;
+  cursor: pointer;
+}
+
+.signup-button:hover {
+  background: linear-gradient(#69a74e, #4e7a39);
+}
+
+.signup-button:disabled {
+  background: #9cb4d8;
+  border-color: #9cb4d8;
+  cursor: not-allowed;
+}
+
+.terms {
+  color: #777;
+  font-size: 11px;
+  margin-top: 15px;
+}
+
+.create-page {
+  margin-top: 20px;
+  border-top: 1px solid #dddfe2;
+  padding-top: 20px;
+  color: #666;
+  font-size: 13px;
+}
+
+.create-page a {
+  color: #385898;
+  text-decoration: none;
+  font-weight: bold;
+}
+
+.create-page a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .container {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .left-content {
+    padding-top: 0;
+  }
+
+  .name-inputs {
+    flex-direction: column;
+  }
+
+  .birthday-inputs {
+    flex-direction: column;
+  }
+
+  .gender-inputs {
+    flex-direction: column;
+  }
+}

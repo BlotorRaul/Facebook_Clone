@@ -1,0 +1,49 @@
+<div class="login-container">
+  <div class="login-card">
+    <h2>Login to Facebook Clone</h2>
+    
+    <form (ngSubmit)="onSubmit()" #loginForm="ngForm">
+      <div class="form-group">
+        <input type="email" 
+               [(ngModel)]="email" 
+               name="email" 
+               placeholder="Email address"
+               required
+               email>
+      </div>
+      
+      <div class="form-group">
+        <input type="password" 
+               [(ngModel)]="password" 
+               name="password" 
+               placeholder="Password"
+               required>
+      </div>
+
+      <button type="submit" 
+              [disabled]="!loginForm.valid || isLoading"
+              class="login-button">
+        {{ isLoading ? 'Logging in...' : 'Log In' }}
+      </button>
+    </form>
+
+    <div class="demo-accounts">
+      <h3>Demo Accounts</h3>
+      <p class="demo-info">You can use any of these accounts to test the application:</p>
+      
+      <div class="account-list">
+        <div class="demo-account" *ngFor="let user of demoUsers" (click)="loginWithDemo(user)">
+          <img [src]="user.avatarUrl" [alt]="user.name" class="demo-avatar">
+          <div class="demo-details">
+            <div class="demo-name">{{user.name}}</div>
+            <div class="demo-email">{{user.email}}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="register-link">
+      <a routerLink="/auth/register">Create New Account</a>
+    </div>
+  </div>
+</div> 

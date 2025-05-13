@@ -1,0 +1,106 @@
+<div class="facebook-login">
+  <!-- Header with login form -->
+  <header class="header">
+    <div class="header-content">
+      <div class="logo">
+        <h1>facebook</h1>
+      </div>
+      <form [formGroup]="loginForm" (ngSubmit)="onLogin()" class="login-form">
+        <div class="form-group">
+          <input type="email" formControlName="email" placeholder="Email">
+          <input type="password" formControlName="password" placeholder="Password">
+          <button type="submit" [disabled]="!loginForm.valid">Log In</button>
+        </div>
+        <div class="login-error" *ngIf="loginError">
+          {{ loginError }}
+        </div>
+        <div class="login-options">
+          <label class="keep-logged-in">
+            <input type="checkbox" formControlName="keepLoggedIn">
+            <span>Keep me logged in</span>
+          </label>
+          <a href="#" class="forgot-password">Forgot your password?</a>
+        </div>
+      </form>
+    </div>
+  </header>
+
+  <!-- Main content -->
+  <main class="main-content">
+    <div class="container">
+      <!-- Left side with connection message -->
+      <div class="left-content">
+        <h2>Facebook helps you connect and share with the people in your life.</h2>
+        <div class="connection-image">
+          <!-- Connection visualization image would go here -->
+        </div>
+      </div>
+
+      <!-- Right side with signup form -->
+      <div class="right-content">
+        <div class="signup-container">
+          <h2>Sign Up</h2>
+          <p>It's free and always will be.</p>
+
+          <form [formGroup]="signupForm" (ngSubmit)="onSignup()">
+            <div class="name-inputs">
+              <input type="text" formControlName="firstName" placeholder="First name">
+              <input type="text" formControlName="lastName" placeholder="Last name">
+            </div>
+
+            <input type="email" formControlName="email" placeholder="Email">
+            <input type="password" formControlName="password" placeholder="New password">
+
+            <div class="birthday-section">
+              <label>Birthday:</label>
+              <div class="birthday-inputs">
+                <select formControlName="birthMonth">
+                  <option value="">Month</option>
+                  <option *ngFor="let month of months; let i = index" [value]="i + 1">
+                    {{month}}
+                  </option>
+                </select>
+
+                <select formControlName="birthDay">
+                  <option value="">Day</option>
+                  <option *ngFor="let day of days" [value]="day">{{day}}</option>
+                </select>
+
+                <select formControlName="birthYear">
+                  <option value="">Year</option>
+                  <option *ngFor="let year of years" [value]="year">{{year}}</option>
+                </select>
+              </div>
+              <a href="#" class="birthday-help">Why do I need to provide my birthday?</a>
+            </div>
+
+            <div class="gender-section">
+              <div class="gender-inputs">
+                <label>
+                  <input type="radio" formControlName="gender" value="female">
+                  Female
+                </label>
+                <label>
+                  <input type="radio" formControlName="gender" value="male">
+                  Male
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" class="signup-button" [disabled]="!signupForm.valid">
+              Sign Up
+            </button>
+          </form>
+
+          <p class="terms">
+            By clicking Sign Up, you agree to our Terms, Data Policy and Cookie Policy.
+          </p>
+
+          <div class="create-page">
+            <a href="#">Create a Page</a> for a celebrity, band or business.
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

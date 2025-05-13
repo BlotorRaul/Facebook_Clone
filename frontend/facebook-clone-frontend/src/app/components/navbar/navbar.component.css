@@ -1,0 +1,187 @@
+.navbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 16px;
+  height: 56px;
+  background: white;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+}
+
+.nav-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-center {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nav-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.logo img {
+  height: 40px;
+}
+
+.search-box {
+  display: flex;
+  align-items: center;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 12px;
+  gap: 8px;
+}
+
+.search-box input {
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 15px;
+}
+
+.nav-icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  color: #65676b;
+  text-decoration: none;
+}
+
+.nav-icon:hover {
+  background: #f0f2f5;
+}
+
+.nav-icon.active {
+  color: #1b74e4;
+}
+
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 20px;
+}
+
+.nav-user:hover {
+  background: #f0f2f5;
+}
+
+.nav-user img {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-menu {
+  position: absolute;
+  top: 100%;
+  right: 16px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+  width: 360px;
+  padding: 8px 0;
+  margin-top: 8px;
+}
+
+.menu-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid #e4e6eb;
+}
+
+.menu-header img {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-info {
+  flex: 1;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #050505;
+}
+
+.user-email {
+  color: #65676b;
+  font-size: 13px;
+}
+
+.menu-items {
+  padding: 8px 0;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  color: #050505;
+  text-decoration: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+  background: #f0f2f5;
+}
+
+.menu-item i {
+  width: 20px;
+  color: #65676b;
+}
+
+.menu-divider {
+  height: 1px;
+  background: #e4e6eb;
+  margin: 8px 0;
+}
+
+.dashboard-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: #1b74e4;
+  color: white;
+  border-radius: 6px;
+  text-decoration: none;
+  font-weight: 500;
+  margin-right: 16px;
+  transition: background-color 0.2s;
+}
+
+.dashboard-btn:hover {
+  background-color: #1668d4;
+}
+
+.dashboard-btn i {
+  font-size: 16px;
+}
+
+/* Existing styles */
+// ... existing code ... 

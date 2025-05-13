@@ -1,0 +1,74 @@
+<nav class="navbar">
+  <div class="nav-left">
+    <a routerLink="/home" class="logo">
+      <img src="assets/facebook-logo.png" alt="Facebook">
+    </a>
+    <div class="search-box">
+      <i class="fas fa-search"></i>
+      <input type="text" placeholder="Search Facebook">
+    </div>
+  </div>
+
+  <div class="nav-center">
+    <a routerLink="/home" routerLinkActive="active" class="nav-icon">
+      <i class="fas fa-home"></i>
+    </a>
+    <a href="#" class="nav-icon">
+      <i class="fas fa-tv"></i>
+    </a>
+    <a href="#" class="nav-icon">
+      <i class="fas fa-store"></i>
+    </a>
+    <a href="#" class="nav-icon">
+      <i class="fas fa-users"></i>
+    </a>
+    <a href="#" class="nav-icon">
+      <i class="fas fa-gamepad"></i>
+    </a>
+  </div>
+
+  <div class="nav-right">
+    <!-- Dashboard Button pentru Admin -->
+    <a *ngIf="isAdmin" 
+       routerLink="/dashboard" 
+       class="dashboard-btn">
+      <i class="fas fa-chart-line"></i>
+      Dashboard
+    </a>
+
+    <div class="nav-user" (click)="toggleMenu()">
+      <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name">
+      <i class="fas fa-caret-down"></i>
+    </div>
+
+    <!-- User Menu -->
+    <div class="user-menu" *ngIf="showMenu">
+      <div class="menu-header">
+        <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name">
+        <div class="user-info">
+          <div class="user-name">{{currentUser?.name}}</div>
+          <div class="user-email">{{currentUser?.email}}</div>
+        </div>
+      </div>
+      <div class="menu-items">
+        <a href="#" class="menu-item">
+          <i class="fas fa-user"></i>
+          Profile
+        </a>
+        <a href="#" class="menu-item">
+          <i class="fas fa-cog"></i>
+          Settings
+        </a>
+        <div class="menu-divider"></div>
+        <a *ngIf="isAdmin" routerLink="/dashboard" class="menu-item">
+          <i class="fas fa-chart-line"></i>
+          Dashboard
+        </a>
+        <a (click)="logout()" class="menu-item">
+          <i class="fas fa-sign-out-alt"></i>
+          Logout
+        </a>
+      </div>
+    </div>
+  </div>
+</nav> 

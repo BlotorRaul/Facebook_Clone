@@ -1,0 +1,249 @@
+<div class="home-container">
+  <!-- Left Sidebar -->
+  <div class="left-sidebar">
+    <!-- User Profile and Logout -->
+    <div class="user-profile">
+      <div class="user-info">
+        <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name" class="user-avatar">
+        <span class="user-name">{{currentUser?.name}}</span>
+      </div>
+      <button class="logout-button" (click)="logout()">
+        <i class="fas fa-sign-out-alt"></i>
+        <span>Logout</span>
+      </button>
+      <!-- Buton Dashboard pentru Admin -->
+      <a *ngIf="isAdmin" class="dashboard-button" [routerLink]="['/dashboard']">
+        <i class="fas fa-chart-line"></i>
+        <span>Dashboard</span>
+      </a>
+    </div>
+    <div class="menu-items">
+      <a href="#" class="menu-item active">
+        <i class="fas fa-home"></i>
+        <span>Home</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-user-friends"></i>
+        <span>Not-So-Secret Family Recipes</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-users"></i>
+        <span>Red Table Talk Group</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-calendar-alt"></i>
+        <span>Events</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-bookmark"></i>
+        <span>Saved</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-gamepad"></i>
+        <span>Gaming</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-hand-holding-heart"></i>
+        <span>Fundraisers</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-history"></i>
+        <span>Memories</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-question-circle"></i>
+        <span>Help & Support</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-cog"></i>
+        <span>Settings & Privacy</span>
+      </a>
+      <a href="#" class="menu-item">
+        <i class="fas fa-chevron-down"></i>
+        <span>See More</span>
+      </a>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Stories Section -->
+    <div class="stories-section">
+      <div class="stories-header">
+        <span class="active">Stories</span>
+        <span>Reels</span>
+      </div>
+      <div class="stories-container">
+        <div class="story-card add-story">
+          <img [src]="currentUser?.avatarUrl" alt="Create Story" class="story-image">
+          <div class="add-story-button">
+            <i class="fas fa-plus"></i>
+          </div>
+          <div class="story-footer">Create Story</div>
+        </div>
+        <!-- Example Stories -->
+        <div class="story-card" *ngFor="let story of stories">
+          <img [src]="story.imageUrl" [alt]="story.userName" class="story-image">
+          <div class="story-footer">{{story.userName}}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Post Section -->
+    <div class="create-post-section">
+      <div class="post-input">
+        <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name" class="user-avatar">
+        <div class="post-input-container">
+          <input type="text" 
+                 [(ngModel)]="newPostTitle" 
+                 placeholder="Post title"
+                 class="post-title-input">
+          <textarea 
+                 [(ngModel)]="newPostText" 
+                 placeholder="What's on your mind?"
+                 class="post-input-text"
+                 rows="3"></textarea>
+        </div>
+      </div>
+      
+      <div class="post-status-section">
+        <label>Status:</label>
+        <select [(ngModel)]="selectedStatus" class="status-select">
+          <option *ngFor="let status of postStatuses" [value]="status">
+            {{status}}
+          </option>
+        </select>
+      </div>
+
+      <div class="post-tags-section">
+        <div class="selected-tags">
+          <span *ngFor="let tag of selectedTags" class="tag">
+            {{tag.name}}
+            <button class="remove-tag" (click)="removeTag(tag)">×</button>
+          </span>
+        </div>
+        <div class="add-tag">
+          <input type="text" 
+                 [(ngModel)]="newTag" 
+                 placeholder="Add a tag"
+                 class="tag-input"
+                 (keyup.enter)="addTag()">
+          <button (click)="addTag()" class="add-tag-btn">Add Tag</button>
+        </div>
+      </div>
+
+      <div *ngIf="selectedImage" class="image-preview">
+        <img [src]="selectedImage" alt="Selected image">
+        <button class="remove-image" (click)="removeImage()">×</button>
+      </div>
+
+      <div class="post-actions">
+        <div class="post-options">
+          <label class="post-action">
+            <i class="fas fa-images"></i>
+            <span>Photo/video</span>
+            <input type="file" (change)="onImageSelected($event)" accept="image/*" hidden>
+          </label>
+          <button class="post-action">
+            <i class="fas fa-user-tag"></i>
+            <span>Tag people</span>
+          </button>
+          <button class="post-action">
+            <i class="fas fa-map-marker-alt"></i>
+            <span>Check in</span>
+          </button>
+          <button class="post-action">
+            <i class="fas fa-smile"></i>
+            <span>Feeling/activity</span>
+          </button>
+        </div>
+        <button class="submit-button" 
+                (click)="createPost()" 
+                [disabled]="(!newPostText && !selectedImage) || isSubmitting">
+          Post
+        </button>
+      </div>
+    </div>
+
+    <!-- Filtering Section -->
+    <div class="filtering-section">
+      <div class="filter-row">
+        <input type="text" 
+               [(ngModel)]="searchTitle" 
+               (ngModelChange)="applyFilters()"
+               placeholder="Search by title"
+               class="filter-input">
+        
+        <input type="text" 
+               [(ngModel)]="filterTag" 
+               (ngModelChange)="applyFilters()"
+               placeholder="Filter by tag"
+               class="filter-input">
+        
+        <input type="text" 
+               [(ngModel)]="filterUser" 
+               (ngModelChange)="applyFilters()"
+               placeholder="Filter by user"
+               class="filter-input">
+        
+        <div class="my-posts-filter">
+          <label>
+            <input type="checkbox" 
+                   [(ngModel)]="showOnlyMyPosts"
+                   (ngModelChange)="applyFilters()">
+            My posts only
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Posts Container -->
+    <div class="posts-container">
+      <app-post 
+        *ngFor="let post of filteredPosts" 
+        [post]="post"
+        [currentUser]="currentUser"
+        (onDelete)="deletePost(post.id.toString())"
+        (onComment)="addComment($event)">
+      </app-post>
+    </div>
+  </div>
+
+  <!-- Right Sidebar -->
+  <div class="right-sidebar">
+    <!-- Suggested Groups Section -->
+    <div class="suggested-groups">
+      <div class="section-header">
+        <h3>Groups</h3>
+        <a href="#">See All</a>
+      </div>
+      <div class="group-suggestion">
+        <img src="assets/images/group-suggestion.jpg" alt="Group suggestion">
+        <div class="group-info">
+          <h4>New ways to find and join communities.</h4>
+          <button class="find-groups-btn">Find Your Groups</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contacts Section -->
+    <div class="contacts-section">
+      <div class="contacts-header">
+        <h3>Contacts</h3>
+        <div class="header-icons">
+          <i class="fas fa-video"></i>
+          <i class="fas fa-search"></i>
+          <i class="fas fa-ellipsis-h"></i>
+        </div>
+      </div>
+      
+      <div class="contacts-list">
+        <div class="contact" *ngFor="let contact of contacts">
+          <img [src]="contact.avatarUrl" [alt]="contact.name">
+          <span class="contact-name">{{contact.name}}</span>
+          <span class="online-indicator" *ngIf="contact.isOnline"></span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

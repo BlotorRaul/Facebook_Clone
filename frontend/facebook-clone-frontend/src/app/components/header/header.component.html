@@ -1,0 +1,52 @@
+<nav class="header-nav">
+  <!-- Left section -->
+  <div class="nav-left">
+    <div class="facebook-logo">
+      <i class="fab fa-facebook" style="color: #1877f2; font-size: 40px;"></i>
+    </div>
+    <div class="search-container">
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input type="text" placeholder="Search Facebook">
+      </div>
+    </div>
+  </div>
+
+  <!-- Middle section -->
+  <div class="nav-middle">
+    <div class="nav-tab active">
+      <i class="fas fa-home"></i>
+    </div>
+    <div class="nav-tab">
+      <i class="fas fa-bell"></i>
+    </div>
+    <div class="nav-tab">
+      <i class="fas fa-tv"></i>
+    </div>
+    <div class="nav-tab">
+      <i class="fas fa-users"></i>
+    </div>
+    <div class="nav-tab">
+      <i class="fas fa-gamepad"></i>
+    </div>
+  </div>
+
+  <!-- Right section -->
+  <div class="nav-right">
+    <div class="nav-profile">
+      <img [src]="currentUser?.avatarUrl || 'assets/default-avatar.png'" alt="Profile" class="profile-pic">
+    </div>
+    <div class="nav-icon-button">
+      <i class="fas fa-th"></i>
+    </div>
+    <div class="nav-icon-button">
+      <i class="fab fa-facebook-messenger"></i>
+    </div>
+    <div class="nav-icon-button">
+      <i class="fas fa-bell"></i>
+    </div>
+    <div class="nav-icon-button">
+      <i class="fas fa-caret-down"></i>
+    </div>
+  </div>
+</nav> 
