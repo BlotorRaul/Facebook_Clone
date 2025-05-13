@@ -1,13 +1,14 @@
 import { Injectable } from '@angular/core';
 import emailjs from '@emailjs/browser';
+import { credentials } from '../config/credentials';
 
 @Injectable({
   providedIn: 'root'
 })
 export class NotificationService {
-  private readonly EMAILJS_SERVICE_ID = 'service_989eh74';
-  private readonly EMAILJS_TEMPLATE_ID = 'template_ea01z96';
-  private readonly EMAILJS_PUBLIC_KEY = 'IidnTwp8ueXolKUga';
+  private readonly EMAILJS_SERVICE_ID = credentials.emailjs.serviceId;
+  private readonly EMAILJS_TEMPLATE_ID = credentials.emailjs.templateId;
+  private readonly EMAILJS_PUBLIC_KEY = credentials.emailjs.publicKey;
 
   constructor() {
     emailjs.init(this.EMAILJS_PUBLIC_KEY);
@@ -50,20 +51,15 @@ export class NotificationService {
   }
 
   async sendBanSMS(userPhone: string, userName: string, banReason: string = 'Încălcare reguli'): Promise<void> {
-    // TODO: Replace these with actual credentials in production
-    const twilioAccountSid = 'YOUR_TWILIO_ACCOUNT_SID';
-    const twilioAuthToken = 'YOUR_TWILIO_AUTH_TOKEN';
-    const twilioPhoneNumber = 'YOUR_TWILIO_PHONE_NUMBER';
-
-    const url = `https://api.twilio.com/2010-04-01/Accounts/${twilioAccountSid}/Messages.json`;
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${credentials.twilio.accountSid}/Messages.json`;
     const body = new URLSearchParams({
       To: userPhone,
-      From: twilioPhoneNumber,
+      From: credentials.twilio.phoneNumber,
       Body: `Salut ${userName}, contul tău a fost blocat. Motiv: ${banReason}`
     });
 
     const headers = new Headers();
-    headers.append('Authorization', 'Basic ' + btoa(`${twilioAccountSid}:${twilioAuthToken}`));
+    headers.append('Authorization', 'Basic ' + btoa(`${credentials.twilio.accountSid}:${credentials.twilio.authToken}`));
     headers.append('Content-Type', 'application/x-www-form-urlencoded');
 
     try {
