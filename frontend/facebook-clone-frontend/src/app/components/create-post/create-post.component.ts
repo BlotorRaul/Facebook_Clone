@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { PostService } from '../../services/post.service';
 import { User } from '../../services/auth.service';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-create-post',
@@ -154,9 +155,21 @@ export class CreatePostComponent {
   @Input() currentUser: User | null = null;
   newPostText: string = '';
   selectedImage: string | ArrayBuffer | null = null;
+  selectedFile: File | null = null;
   isSubmitting: boolean = false;
+  post = {
+    title: '',
+    content: '',
+    author: {
+      id: '1',
+      name: 'Demo User',
+      avatarUrl: 'https://via.placeholder.com/150'
+    }
+  };
+  successMsg = '';
+  errorMsg = '';
 
-  constructor(private postService: PostService) {}
+  constructor(private postService: PostService, private http: HttpClient) {}
 
   onImageSelected(event: any): void {
     const file = event.target.files[0];
@@ -165,12 +178,11 @@ export class CreatePostComponent {
         alert('Please select an image file');
         return;
       }
-
       if (file.size > 5 * 1024 * 1024) {
         alert('File size should not exceed 5MB');
         return;
       }
-
+      this.selectedFile = file;
       const reader = new FileReader();
       reader.onload = () => {
         this.selectedImage = reader.result;
@@ -184,35 +196,56 @@ export class CreatePostComponent {
   }
 
   createPost(): void {
-    if ((!this.newPostText && !this.selectedImage) || this.isSubmitting || !this.currentUser) {
+    if ((!this.newPostText && !this.selectedFile) || this.isSubmitting || !this.currentUser) {
       return;
     }
-
     this.isSubmitting = true;
+    this.successMsg = '';
+    this.errorMsg = '';
 
-    try {
+    const create = (imageUrl?: string) => {
       const newPost = {
-        author: {
-          name: this.currentUser.name,
-          avatarUrl: this.currentUser.avatarUrl
-        },
+        title: '',
         content: this.newPostText,
-        imageUrl: this.selectedImage as string | undefined,
-        timePosted: 'Just now'
+        author: {
+          id: this.currentUser!.id,
+          name: this.currentUser!.name,
+          avatarUrl: this.currentUser!.avatarUrl
+        },
+        imageUrl: imageUrl,
+        tags: [],
+        comments: [],
+        likesCount: 0,
+        commentsCount: 0,
+        likedBy: []
       };
+      this.postService.addPost(newPost).subscribe({
+        next: () => {
+          this.successMsg = 'Postare creată cu succes!';
+          this.isSubmitting = false;
+          this.newPostText = '';
+          this.selectedImage = null;
+          this.selectedFile = null;
+        },
+        error: (err) => {
+          this.errorMsg = 'Eroare la creare postare!';
+          this.isSubmitting = false;
+        }
+      });
+    };
 
-      // Add the new post
-      this.postService.addPost(newPost);
-      console.log('New post created:', newPost);
-
-      // Reset form
-      this.newPostText = '';
-      this.selectedImage = null;
-    } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post. Please try again.');
-    } finally {
-      this.isSubmitting = false;
+    if (this.selectedFile) {
+      this.postService.uploadImage(this.selectedFile).subscribe({
+        next: (imageUrl) => {
+          create(imageUrl);
+        },
+        error: () => {
+          this.errorMsg = 'Eroare la upload imagine!';
+          this.isSubmitting = false;
+        }
+      });
+    } else {
+      create();
     }
   }
 } 

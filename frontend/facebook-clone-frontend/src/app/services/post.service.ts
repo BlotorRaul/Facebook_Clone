@@ -1,6 +1,9 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { AuthService } from './auth.service';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from '../../environments/environment';
+import { map, catchError, tap } from 'rxjs/operators';
 
 export enum PostStatus {
   RECEIVED = 'RECEIVED',
@@ -17,6 +20,7 @@ export interface Comment {
     id: string;
     name: string;
     avatarUrl: string;
+    score?: number;
   };
   content: string;
   imageUrl?: string;
@@ -38,6 +42,7 @@ export interface Post {
     id: string;
     name: string;
     avatarUrl: string;
+    score?: number;
   };
   title?: string;
   content: string;
@@ -49,6 +54,7 @@ export interface Post {
   likesCount: number;
   commentsCount: number;
   likedBy: string[];
+  dislikedBy?: string[];
   commentsDisabled?: boolean;
 }
 
@@ -56,420 +62,388 @@ export interface Post {
   providedIn: 'root'
 })
 export class PostService {
-  private posts: Post[] = [];
   private postsSubject = new BehaviorSubject<Post[]>([]);
-  private readonly POSTS_STORAGE_KEY = 'facebook_clone_posts';
+  private apiUrl = environment.apiUrl;
 
-  constructor(private authService: AuthService) {
-    this.loadPostsFromStorage();
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {
+    this.loadPosts();
   }
 
-  private loadPostsFromStorage(): void {
-    try {
-      const savedPosts = localStorage.getItem(this.POSTS_STORAGE_KEY);
-      if (savedPosts) {
-        this.posts = JSON.parse(savedPosts);
-        this.postsSubject.next([...this.posts]);
+  private getHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+    return new HttpHeaders().set('Authorization', `Bearer ${token}`);
+  }
+
+  public loadPosts(): void {
+    console.log('Loading posts from backend...');
+    this.http.get<any>(`${this.apiUrl}/posts`, { headers: this.getHeaders() }).subscribe(
+      response => {
+        let posts: Post[] = [];
+        if (Array.isArray(response)) {
+          posts = response;
+        } else if (response && Array.isArray(response.posts)) {
+          posts = response.posts;
+          // poți salva și lista de useri blocați dacă e nevoie: response.blockedUsers
+        }
+        console.log('Posts loaded from backend:', posts);
+        this.postsSubject.next(posts);
+      },
+      error => {
+        console.error('Error loading posts:', error);
+        this.postsSubject.next([]);
       }
-    } catch (error) {
-      console.error('Error loading posts from storage:', error);
-      this.posts = [];
-      this.postsSubject.next([]);
-    }
-  }
-
-  private savePostsToStorage(): void {
-    try {
-      localStorage.setItem(this.POSTS_STORAGE_KEY, JSON.stringify(this.posts));
-      this.postsSubject.next(this.posts.slice());
-    } catch (error) {
-      console.error('Error saving posts to storage:', error);
-      throw new Error('Failed to save posts');
-    }
+    );
   }
 
   getPosts(): Observable<Post[]> {
     return this.postsSubject.asObservable();
   }
 
-  addPost(post: Omit<Post, 'id' | 'timePosted' | 'status' | 'commentsDisabled'>): boolean {
-    if (!this.authService.getCurrentUserValue()) return false;
-
-    const newPost: Post = {
-      ...post,
-      id: this.posts.length + 1,
-      timePosted: new Date().toISOString(),
-      status: PostStatus.JUST_POSTED,
-      commentsDisabled: false,
-      comments: [],
-      likesCount: 0,
-      commentsCount: 0,
-      likedBy: []
-    };
-
-    this.posts.unshift(newPost);
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+  addPost(post: Omit<Post, 'id' | 'timePosted' | 'status' | 'commentsDisabled'>): Observable<boolean> {
+    console.log('Creating new post:', post);
+    return this.http.post<Post>(`${this.apiUrl}/posts`, post, { headers: this.getHeaders() }).pipe(
+      tap(newPost => {
+        console.log('Post created successfully:', newPost);
+        const currentPosts = this.postsSubject.value;
+        const updatedPosts = [newPost, ...currentPosts];
+        console.log('Updating posts list with:', updatedPosts);
+        this.postsSubject.next(updatedPosts);
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error creating post:', error);
+        return of(false);
+      })
+    );
   }
 
-  deletePost(postId: number, currentUserName: string): boolean {
-    try {
-      const postIndex = this.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) {
-        console.error('Post not found:', postId);
-        return false;
-      }
-
-      const post = this.posts[postIndex];
-      
-      if (!this.authService.hasPermission('delete', post.author.id)) {
-        console.error('User not authorized to delete this post');
-        return false;
-      }
-
-      this.posts.splice(postIndex, 1);
-      this.savePostsToStorage();
-      
-      console.log('Post deleted successfully:', postId);
-      return true;
-    } catch (error) {
-      console.error('Error deleting post:', error);
-      return false;
-    }
+  deletePost(postId: number, currentUserName: string): Observable<boolean> {
+    console.log('Deleting post:', postId);
+    return this.http.delete(`${this.apiUrl}/posts/${postId}`, { headers: this.getHeaders() }).pipe(
+      tap(() => {
+        const currentPosts = this.postsSubject.value;
+        const updatedPosts = currentPosts.filter(p => p.id !== postId);
+        console.log('Updating posts list after deletion:', updatedPosts);
+        this.postsSubject.next(updatedPosts);
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error deleting post:', error);
+        return of(false);
+      })
+    );
   }
 
-  private sortComments(comments: Comment[]): void {
-    comments.sort((a, b) => {
-      const scoreA = a.likes - a.dislikes;
-      const scoreB = b.likes - b.dislikes;
-
-      if (scoreB !== scoreA) {
-        return scoreB - scoreA;
-      }
-
-      return new Date(b.timePosted).getTime() - new Date(a.timePosted).getTime();
-    });
-  }
-
-  addComment(postId: number, content: string, imageUrl?: string): boolean {
+  addComment(postId: number, content: string, imageUrl?: string): Observable<boolean> {
     const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) return false;
+    if (!currentUser) {
+      return of(false);
+    }
 
-    const post = this.posts.find(p => p.id === postId);
-    if (!post || post.commentsDisabled) return false;
-
-    const comment: Comment = {
-      id: post.comments.length + 1,
+    const comment = {
       author: {
         id: currentUser.id,
         name: currentUser.name,
         avatarUrl: currentUser.avatarUrl || ''
       },
       content,
-      timePosted: new Date().toISOString(),
-      imageUrl,
-      likes: 0,
-      dislikes: 0,
-      likedBy: [],
-      dislikedBy: []
+      imageUrl
     };
 
-    post.comments.push(comment);
-    post.commentsCount = post.comments.length;
-
-    if (post.comments.length === 1) {
-      post.status = PostStatus.FIRST_REACTIONS;
-    }
-
-    this.sortComments(post.comments);
-
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+    console.log('Adding comment to post:', postId, comment);
+    return this.http.post<Post>(`${this.apiUrl}/posts/${postId}/comment`, comment, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Comment added successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          console.log('Updating posts list after comment:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error adding comment:', error);
+        return of(false);
+      })
+    );
   }
 
-  deleteComment(postId: number, commentId: number, currentUserName: string): boolean {
-    try {
-      const postIndex = this.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) {
-        console.error('Post not found:', postId);
-        return false;
-      }
-
-      const post = JSON.parse(JSON.stringify(this.posts[postIndex]));
-
-      const commentIndex = post.comments.findIndex((c: Comment) => c.id === commentId);
-      if (commentIndex === -1) {
-        console.error('Comment not found:', commentId);
-        return false;
-      }
-
-      const comment = post.comments[commentIndex];
-
-      if (!this.authService.hasPermission('delete', comment.author.id)) {
-        console.error('User not authorized to delete this comment');
-        return false;
-      }
-
-      post.comments.splice(commentIndex, 1);
-      post.commentsCount = post.comments.length;
-
-      this.posts[postIndex] = post;
-      
-      this.savePostsToStorage();
-      
-      console.log('Comment deleted successfully:', commentId);
-      return true;
-    } catch (error) {
-      console.error('Error deleting comment:', error);
-      return false;
-    }
+  deleteComment(postId: number, commentId: number, currentUserName: string): Observable<boolean> {
+    console.log('Deleting comment:', commentId, 'from post:', postId);
+    return this.http.delete<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}`, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Comment deleted successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost as Post;
+          console.log('Updating posts list after comment deletion:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error deleting comment:', error);
+        return of(false);
+      })
+    );
   }
 
-  dislikePost(postId: number): boolean {
-    const post = this.posts.find(p => p.id === postId);
-    if (!post) return false;
-
+  likePost(postId: number): Observable<boolean> {
     const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) return false;
-
-    if (post.author.id === currentUser.id) {
-      return false;
-    }
-
-    if (post.likedBy.includes(currentUser.name)) {
-      const userIndex = post.likedBy.indexOf(currentUser.name);
-      post.likedBy.splice(userIndex, 1);
-      post.likesCount--;
-      this.authService.updateScoreForPostVote(post.author.id, false);
-      this.authService.updateScoreForPostVote(post.author.id, false);
-    } else {
-      if (post.likesCount < 0) {
-        this.authService.updateScoreForPostVote(post.author.id, true);
-      } else {
-        this.authService.updateScoreForPostVote(post.author.id, false);
-      }
-      post.likesCount--;
-    }
-
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/like`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  likePost(postId: number): boolean {
-    const post = this.posts.find(p => p.id === postId);
-    if (!post) return false;
-
+  dislikePost(postId: number): Observable<boolean> {
     const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) return false;
-
-    if (post.author.id === currentUser.id) {
-      return false;
-    }
-
-    const userIndex = post.likedBy.indexOf(currentUser.name);
-    if (userIndex === -1) {
-      post.likedBy.push(currentUser.name);
-      post.likesCount++;
-      this.authService.updateScoreForPostVote(post.author.id, true);
-    } else {
-      post.likedBy.splice(userIndex, 1);
-      post.likesCount--;
-      this.authService.updateScoreForPostVote(post.author.id, false);
-    }
-
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/dislike`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  getPost(postId: number): Post | undefined {
-    return this.posts.find(p => p.id === postId);
-  }
-
-  clearStorage(): void {
-    localStorage.removeItem(this.POSTS_STORAGE_KEY);
-    this.posts = [];
-    this.postsSubject.next([]);
-  }
-
-  likeComment(postId: number, commentId: number, currentUserName: string): boolean {
-    const post = this.posts.find(p => p.id === postId);
-    if (!post) return false;
-
-    const comment = post.comments.find(c => c.id === commentId);
-    if (!comment) return false;
-
-    if (comment.author.name === currentUserName) {
-      return false;
-    }
-
+  likeComment(postId: number, commentId: number): Observable<boolean> {
     const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) return false;
-
-    if (comment.likedBy.includes(currentUserName)) {
-      comment.likes--;
-      const userIndex = comment.likedBy.indexOf(currentUserName);
-      if (userIndex !== -1) {
-        comment.likedBy.splice(userIndex, 1);
-      }
-      this.authService.updateScoreForCommentVote(comment.author.id, false);
-    } 
-    else if (comment.dislikedBy.includes(currentUserName)) {
-      comment.dislikes--;
-      const userIndex = comment.dislikedBy.indexOf(currentUserName);
-      if (userIndex !== -1) {
-        comment.dislikedBy.splice(userIndex, 1);
-      }
-      this.authService.updateScoreForCommentVote(comment.author.id, true);
-      this.authService.updateScoreForDownvotingComment(currentUser.id, true);
-
-      comment.likes++;
-      comment.likedBy.push(currentUserName);
-      this.authService.updateScoreForCommentVote(comment.author.id, true);
-    }
-    else {
-      comment.likes++;
-      comment.likedBy.push(currentUserName);
-      this.authService.updateScoreForCommentVote(comment.author.id, true);
-    }
-
-    this.sortComments(post.comments);
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}/like`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  dislikeComment(postId: number, commentId: number, currentUserName: string): boolean {
-    const post = this.posts.find(p => p.id === postId);
-    if (!post) return false;
-
-    const comment = post.comments.find(c => c.id === commentId);
-    if (!comment) return false;
-
-    if (comment.author.name === currentUserName) {
-      return false;
-    }
-
+  dislikeComment(postId: number, commentId: number): Observable<boolean> {
     const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) return false;
-
-    if (comment.dislikedBy.includes(currentUserName)) {
-      comment.dislikes--;
-      const userIndex = comment.dislikedBy.indexOf(currentUserName);
-      if (userIndex !== -1) {
-        comment.dislikedBy.splice(userIndex, 1);
-      }
-      this.authService.updateScoreForCommentVote(comment.author.id, true);
-      this.authService.updateScoreForDownvotingComment(currentUser.id, true);
-    } 
-    else if (comment.likedBy.includes(currentUserName)) {
-      comment.likes--;
-      const userIndex = comment.likedBy.indexOf(currentUserName);
-      if (userIndex !== -1) {
-        comment.likedBy.splice(userIndex, 1);
-      }
-
-      comment.dislikes++;
-      comment.dislikedBy.push(currentUserName);
-      
-      this.authService.updateScoreForCommentVote(comment.author.id, false);
-      this.authService.updateScoreForDownvotingComment(currentUser.id);
-    }
-    else {
-      comment.dislikes++;
-      comment.dislikedBy.push(currentUserName);
-      this.authService.updateScoreForCommentVote(comment.author.id, false);
-      this.authService.updateScoreForDownvotingComment(currentUser.id);
-    }
-
-    this.sortComments(post.comments);
-    this.savePostsToStorage();
-    this.postsSubject.next([...this.posts]);
-    return true;
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}/dislike`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  editPost(postId: number, newContent: string): boolean {
-    try {
-      const postIndex = this.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) return false;
-
-      const post = this.posts[postIndex];
-
-      if (!this.authService.hasPermission('edit', post.author.id)) {
-        console.error('User not authorized to edit this post');
-        return false;
-      }
-
-      this.posts[postIndex] = {
-        ...post,
-        content: newContent
-      };
-
-      this.savePostsToStorage();
-      return true;
-    } catch (error) {
-      console.error('Error editing post:', error);
-      return false;
-    }
+  unlikeComment(postId: number, commentId: number): Observable<boolean> {
+    const currentUser = this.authService.getCurrentUserValue();
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}/unlike`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  editComment(postId: number, commentId: number, newContent: string): boolean {
-    try {
-      const postIndex = this.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) return false;
-
-      const post = JSON.parse(JSON.stringify(this.posts[postIndex]));
-      const commentIndex = post.comments.findIndex((c: Comment) => c.id === commentId);
-      if (commentIndex === -1) return false;
-
-      const comment = post.comments[commentIndex];
-
-      if (!this.authService.hasPermission('edit', comment.author.id)) {
-        console.error('User not authorized to edit this comment');
-        return false;
-      }
-
-      post.comments[commentIndex] = {
-        ...comment,
-        content: newContent
-      };
-
-      this.posts[postIndex] = post;
-      this.savePostsToStorage();
-      return true;
-    } catch (error) {
-      console.error('Error editing comment:', error);
-      return false;
-    }
+  undislikeComment(postId: number, commentId: number): Observable<boolean> {
+    const currentUser = this.authService.getCurrentUserValue();
+    if (!currentUser) return of(false);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}/undislike`, { user: currentUser.name }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        return of(false);
+      })
+    );
   }
 
-  toggleComments(postId: number): boolean {
-    try {
-      const postIndex = this.posts.findIndex(p => p.id === postId);
-      if (postIndex === -1) return false;
+  getPost(postId: number): Observable<Post | undefined> {
+    return new Observable<Post | undefined>(observer => {
+      const post = this.postsSubject.value.find(p => p.id === postId);
+      observer.next(post);
+      observer.complete();
+    });
+  }
 
-      const post = this.posts[postIndex];
+  editPost(postId: number, newContent: string): Observable<boolean> {
+    console.log('Editing post:', postId, 'with content:', newContent);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/edit`, { content: newContent }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Post edited successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          console.log('Updating posts list after edit:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error editing post:', error);
+        return of(false);
+      })
+    );
+  }
 
-      if (!this.authService.hasPermission('admin', post.author.id)) {
-        console.error('User not authorized to toggle comments');
-        return false;
-      }
+  editComment(postId: number, commentId: number, newContent: string): Observable<boolean> {
+    console.log('Editing comment:', commentId, 'from post:', postId);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/comment/${commentId}/edit`, { content: newContent }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Comment edited successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          console.log('Updating posts list after comment edit:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error editing comment:', error);
+        return of(false);
+      })
+    );
+  }
 
-      post.commentsDisabled = !post.commentsDisabled;
-      
-      if (post.commentsDisabled) {
-        post.status = PostStatus.EXPIRED;
-      }
-      
-      this.savePostsToStorage();
-      
-      return true;
-    } catch (error) {
-      console.error('Error toggling comments:', error);
-      return false;
-    }
+  toggleComments(postId: number): Observable<boolean> {
+    console.log('Toggling comments for post:', postId);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/toggle-comments`, {}, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Comments toggled successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          console.log('Updating posts list after toggle comments:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error toggling comments:', error);
+        return of(false);
+      })
+    );
+  }
+
+  uploadImage(file: File): Observable<string> {
+    console.log('Uploading image:', file.name);
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http.post<{ imageUrl: string }>(`${this.apiUrl}/posts/upload-image`, formData).pipe(
+      map(response => {
+        console.log('Image uploaded successfully:', response.imageUrl);
+        return response.imageUrl;
+      }),
+      catchError(error => {
+        console.error('Error uploading image:', error);
+        return of('');
+      })
+    );
+  }
+
+  getTags(): Observable<any[]> {
+    console.log('Getting all tags');
+    return this.http.get<any[]>(`${this.apiUrl}/posts/tags`, { headers: this.getHeaders() });
+  }
+
+  createTag(name: string): Observable<any> {
+    console.log('Creating new tag:', name);
+    return this.http.post<any>(`${this.apiUrl}/posts/tags`, { name }, { headers: this.getHeaders() });
+  }
+
+  updatePostStatus(postId: number, status: string): Observable<boolean> {
+    console.log('Updating post status:', postId, status);
+    return this.http.put<Post>(`${this.apiUrl}/posts/${postId}/status`, { status }, { headers: this.getHeaders() }).pipe(
+      tap(updatedPost => {
+        console.log('Post status updated successfully:', updatedPost);
+        const currentPosts = this.postsSubject.value;
+        const postIndex = currentPosts.findIndex(p => p.id === postId);
+        if (postIndex !== -1) {
+          currentPosts[postIndex] = updatedPost;
+          console.log('Updating posts list after status change:', currentPosts);
+          this.postsSubject.next([...currentPosts]);
+        }
+      }),
+      map(() => true),
+      catchError(error => {
+        console.error('Error updating post status:', error);
+        return of(false);
+      })
+    );
+  }
+
+  blockUser(userToBlock: string): Observable<any> {
+    const currentUser = this.authService.getCurrentUserValue();
+    if (!currentUser) return of(false);
+    return this.http.post(`${this.apiUrl}/posts/block-user`, {
+      user: userToBlock,
+      requester: currentUser.name,
+      role: currentUser.role
+    }, { headers: this.getHeaders() });
+  }
+
+  unblockUser(userToUnblock: string): Observable<any> {
+    const currentUser = this.authService.getCurrentUserValue();
+    if (!currentUser) return of(false);
+    return this.http.post(`${this.apiUrl}/posts/unblock-user`, {
+      user: userToUnblock,
+      requester: currentUser.name,
+      role: currentUser.role
+    }, { headers: this.getHeaders() });
   }
 }

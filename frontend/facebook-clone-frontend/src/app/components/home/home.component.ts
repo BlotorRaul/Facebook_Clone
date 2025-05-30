@@ -7,7 +7,7 @@ import { PostComponent } from '../post/post.component';
 import { PostService, Post, PostStatus, Tag } from '../../services/post.service';
 import { AuthService, User } from '../../services/auth.service';
 import { Router } from '@angular/router';
-import { Subscription } from 'rxjs';
+import { Subscription, Observable, map } from 'rxjs';
 
 interface Story {
   imageUrl: string;
@@ -24,13 +24,16 @@ interface Story {
 export class HomeComponent implements OnInit, OnDestroy {
   contacts: any[] = [];
   currentUser: User | null = null;
-  posts: Post[] = [];
-  filteredPosts: Post[] = [];
+  posts$: Observable<Post[]>;
+  filteredPosts$: Observable<Post[]>;
   newPostText: string = '';
   newPostTitle: string = '';
+  newComment: string = '';
   selectedImage: string | ArrayBuffer | null = null;
   isSubmitting: boolean = false;
-  isAdmin = false;
+  get isAdmin(): boolean {
+    return this.authService.isAdmin();
+  }
   private userSubscription?: Subscription;
   postStatuses = Object.values(PostStatus);
   selectedStatus: PostStatus = PostStatus.RECEIVED;
@@ -46,19 +49,19 @@ export class HomeComponent implements OnInit, OnDestroy {
 
   stories: Story[] = [
     {
-      imageUrl: 'assets/images/story1.jpg',
+      imageUrl: 'https://randomuser.me/api/portraits/men/1.jpg',
       userName: 'Tom Russo'
     },
     {
-      imageUrl: 'assets/images/story2.jpg',
+      imageUrl: 'https://randomuser.me/api/portraits/women/2.jpg',
       userName: 'Anna Becklund'
     },
     {
-      imageUrl: 'assets/images/story3.jpg',
+      imageUrl: 'https://randomuser.me/api/portraits/men/3.jpg',
       userName: 'Dennis Han'
     },
     {
-      imageUrl: 'assets/images/story4.jpg',
+      imageUrl: 'https://randomuser.me/api/portraits/women/4.jpg',
       userName: 'Cynthia Lopez'
     }
   ];
@@ -69,34 +72,25 @@ export class HomeComponent implements OnInit, OnDestroy {
     private authService: AuthService,
     private router: Router
   ) {
-    // Check authentication immediately
-    const currentUser = this.authService.getCurrentUserValue();
-    if (!currentUser) {
-      this.router.navigate(['/auth']);
-      return;
-    }
+    this.posts$ = this.postService.getPosts();
+    this.filteredPosts$ = this.posts$;
+    this.currentUser = this.authService.getCurrentUserValue();
   }
 
   ngOnInit(): void {
-    // Load contacts only if authenticated
-    if (this.authService.getCurrentUserValue()) {
-      this.contacts = this.userService.getContacts();
-      
-      // Subscribe to user changes
-      this.userSubscription = this.authService.getCurrentUser().subscribe((user: User | null) => {
-        this.currentUser = user;
-        this.isAdmin = this.authService.isAdmin();
-        if (!user) {
-          this.router.navigate(['/auth']);
-        }
-      });
-      
-      // Subscribe to posts
-      this.postService.getPosts().subscribe(posts => {
-        this.posts = posts;
-        this.applyFilters();
-      });
+    this.postService.loadPosts();
+    if (!this.currentUser) {
+      this.router.navigate(['/auth']);
+      return;
     }
+    console.log('HomeComponent initialized');
+    this.posts$.subscribe(posts => {
+      console.log('Posts received in HomeComponent:', posts);
+      if (!Array.isArray(posts) || posts.length === 0) {
+        console.log('No posts found or invalid data, refreshing...');
+        this.refreshPosts();
+      }
+    });
   }
 
   ngOnDestroy(): void {
@@ -119,11 +113,23 @@ export class HomeComponent implements OnInit, OnDestroy {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        this.selectedImage = e.target?.result || null;
-      };
-      reader.readAsDataURL(file);
+      this.isSubmitting = true;
+      this.postService.uploadImage(file).subscribe(
+        imageUrl => {
+          if (imageUrl) {
+            this.selectedImage = imageUrl;
+          } else {
+            alert('Failed to upload image');
+          }
+        },
+        error => {
+          console.error('Error uploading image:', error);
+          alert('Failed to upload image');
+        },
+        () => {
+          this.isSubmitting = false;
+        }
+      );
     }
   }
 
@@ -142,6 +148,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     this.isSubmitting = true;
+    console.log('Creating new post with data:', {
+      author: this.currentUser,
+      title: this.newPostTitle,
+      content: this.newPostText,
+      imageUrl: this.selectedImage,
+      tags: this.selectedTags
+    });
 
     const post = {
       author: {
@@ -159,24 +172,43 @@ export class HomeComponent implements OnInit, OnDestroy {
       likedBy: []
     };
 
-    try {
-      if (this.postService.addPost(post)) {
-        this.newPostText = '';
-        this.newPostTitle = '';
-        this.selectedImage = null;
-        this.selectedTags = [];
+    this.postService.addPost(post).subscribe(
+      success => {
+        if (success) {
+          console.log('Post created successfully');
+          this.newPostText = '';
+          this.newPostTitle = '';
+          this.selectedImage = null;
+          this.selectedTags = [];
+          this.refreshPosts();
+        } else {
+          console.error('Failed to create post');
+          alert('Failed to create post');
+        }
+      },
+      error => {
+        console.error('Error creating post:', error);
+        alert('Failed to create post');
+      },
+      () => {
+        this.isSubmitting = false;
       }
-    } catch (error) {
-      console.error('Error creating post:', error);
-      alert('Failed to create post');
-    } finally {
-      this.isSubmitting = false;
-    }
+    );
   }
 
   deletePost(postId: string): void {
     if (this.currentUser) {
-      this.postService.deletePost(Number(postId), this.currentUser.name);
+      console.log('Deleting post:', postId);
+      this.postService.deletePost(Number(postId), this.currentUser.name).subscribe(
+        success => {
+          if (success) {
+            console.log('Post deleted successfully');
+          } else {
+            console.error('Failed to delete post');
+            alert('Failed to delete post');
+          }
+        }
+      );
     }
   }
 
@@ -184,28 +216,87 @@ export class HomeComponent implements OnInit, OnDestroy {
     this.authService.logout();
   }
 
-  addComment(data: { postId: string; comment: string; imageUrl?: string }): void {
-    if (!this.currentUser) {
-      alert('Please log in to comment');
-      return;
-    }
-
-    const success = this.postService.addComment(
-      Number(data.postId),
-      data.comment,
-      data.imageUrl
-    );
-
-    if (success) {
-      // Update the specific post in the posts list
-      const postIndex = this.posts.findIndex(p => p.id === Number(data.postId));
-      if (postIndex !== -1) {
-        const updatedPost = this.postService.getPost(Number(data.postId));
-        if (updatedPost) {
-          this.posts[postIndex] = updatedPost;
+  likePost(postId: number): void {
+    console.log('Liking post:', postId);
+    this.postService.likePost(postId).subscribe(
+      success => {
+        if (success) {
+          console.log('Post liked successfully');
+          this.posts$ = this.postService.getPosts();
+        } else {
+          console.error('Failed to like post');
+          alert('Failed to like post');
         }
       }
-    }
+    );
+  }
+
+  toggleComments(postId: number): void {
+    console.log('Toggling comments for post:', postId);
+    this.postService.toggleComments(postId).subscribe(
+      success => {
+        if (success) {
+          console.log('Comments toggled successfully');
+          this.posts$ = this.postService.getPosts();
+        } else {
+          console.error('Failed to toggle comments');
+          alert('Failed to toggle comments');
+        }
+      }
+    );
+  }
+
+  hasPermission(action: 'delete' | 'edit' | 'admin', resourceOwnerId: string): boolean {
+    return this.authService.hasPermission(action, resourceOwnerId);
+  }
+
+  addComment(postId: number, comment: string): void {
+    if (!this.currentUser) return;
+    
+    console.log('Adding comment to post:', postId, comment);
+    this.postService.addComment(postId, comment).subscribe(
+      success => {
+        if (success) {
+          console.log('Comment added successfully');
+          this.posts$ = this.postService.getPosts();
+          this.newComment = '';
+        } else {
+          console.error('Failed to add comment');
+          alert('Failed to add comment');
+        }
+      }
+    );
+  }
+
+  editComment(postId: number, commentId: number, content: string): void {
+    console.log('Editing comment:', commentId, 'from post:', postId);
+    this.postService.editComment(postId, commentId, content).subscribe(
+      success => {
+        if (success) {
+          console.log('Comment edited successfully');
+          this.posts$ = this.postService.getPosts();
+        } else {
+          console.error('Failed to edit comment');
+          alert('Failed to edit comment');
+        }
+      }
+    );
+  }
+
+  deleteComment(postId: number, commentId: number): void {
+    if (!this.currentUser) return;
+    console.log('Deleting comment:', commentId, 'from post:', postId);
+    this.postService.deleteComment(postId, commentId, this.currentUser.name).subscribe(
+      success => {
+        if (success) {
+          console.log('Comment deleted successfully');
+          this.posts$ = this.postService.getPosts();
+        } else {
+          console.error('Failed to delete comment');
+          alert('Failed to delete comment');
+        }
+      }
+    );
   }
 
   addTag(): void {
@@ -228,39 +319,73 @@ export class HomeComponent implements OnInit, OnDestroy {
   }
 
   applyFilters(): void {
-    let filtered = [...this.posts];
+    console.log('Applying filters:', {
+      searchTitle: this.searchTitle,
+      filterTag: this.filterTag,
+      filterUser: this.filterUser,
+      showOnlyMyPosts: this.showOnlyMyPosts
+    });
 
-    // Filter by title
-    if (this.searchTitle) {
-      const searchLower = this.searchTitle.toLowerCase();
-      filtered = filtered.filter(post => 
-        post.title?.toLowerCase().includes(searchLower)
-      );
-    }
+    this.filteredPosts$ = this.posts$.pipe(
+      map(posts => {
+        let filtered = [...posts];
 
-    // Filter by tag
-    if (this.filterTag) {
-      const tagLower = this.filterTag.toLowerCase();
-      filtered = filtered.filter(post => 
-        post.tags?.some(tag => tag.name.toLowerCase().includes(tagLower))
-      );
-    }
+        if (this.searchTitle) {
+          const searchLower = this.searchTitle.toLowerCase();
+          filtered = filtered.filter(post => 
+            post.title?.toLowerCase().includes(searchLower)
+          );
+        }
 
-    // Filter by user
-    if (this.filterUser) {
-      const userLower = this.filterUser.toLowerCase();
-      filtered = filtered.filter(post => 
-        post.author.name.toLowerCase().includes(userLower)
-      );
-    }
+        if (this.filterTag) {
+          const tagLower = this.filterTag.toLowerCase();
+          filtered = filtered.filter(post => 
+            post.tags?.some(tag => tag.name.toLowerCase().includes(tagLower))
+          );
+        }
 
-    // Filter my posts
-    if (this.showOnlyMyPosts && this.currentUser) {
-      filtered = filtered.filter(post => 
-        post.author.id === this.currentUser?.id
-      );
-    }
+        if (this.filterUser) {
+          const userLower = this.filterUser.toLowerCase();
+          filtered = filtered.filter(post => 
+            post.author.name.toLowerCase().includes(userLower)
+          );
+        }
 
-    this.filteredPosts = filtered;
+        if (this.showOnlyMyPosts && this.currentUser) {
+          filtered = filtered.filter(post => 
+            post.author.id === this.currentUser?.id
+          );
+        }
+
+        console.log('Filtered posts:', filtered);
+        return filtered;
+      })
+    );
+  }
+
+  onPostUpdated(post: Post): void {
+    console.log('Post updated:', post);
+    this.refreshPosts();
+  }
+
+  onCommentAdded(post: Post): void {
+    console.log('Comment added to post:', post);
+    this.refreshPosts();
+  }
+
+  onCommentDeleted(post: Post): void {
+    console.log('Comment deleted from post:', post);
+    this.refreshPosts();
+  }
+
+  onCommentUpdated(post: Post): void {
+    console.log('Comment updated in post:', post);
+    this.refreshPosts();
+  }
+
+  refreshPosts(): void {
+    console.log('Refreshing posts');
+    this.posts$ = this.postService.getPosts();
+    this.applyFilters();
   }
 }

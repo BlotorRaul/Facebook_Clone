@@ -26,7 +26,8 @@ public class CommentMapper {
         commentDTO.setScore(comment.getScore());
         commentDTO.setPictureUrl(comment.getPictureUrl());
         commentDTO.setCreatedAt(comment.getCreatedAt());
-
+        // Aici ar trebui să obținem username-ul autorului dintr-un serviciu de utilizatori
+        // Pentru simplitate, îl lăsăm gol
         return commentDTO;
     }
 } 

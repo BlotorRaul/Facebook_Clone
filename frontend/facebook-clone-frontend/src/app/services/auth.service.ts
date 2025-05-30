@@ -1,7 +1,10 @@
 import { Injectable } from '@angular/core';
-import { BehaviorSubject, Observable } from 'rxjs';
+import { BehaviorSubject, Observable, of } from 'rxjs';
 import { Router } from '@angular/router';
 import { NotificationService } from './notification.service';
+import { HttpClient } from '@angular/common/http';
+import { environment } from '../../environments/environment';
+import { map, catchError, tap } from 'rxjs/operators';
 
 export interface User {
   id: string;
@@ -20,95 +23,29 @@ export interface User {
 })
 export class AuthService {
   private currentUserSubject = new BehaviorSubject<User | null>(null);
-  private readonly USERS_KEY = 'facebook_clone_users';
-  private readonly CURRENT_USER_KEY = 'facebook_clone_current_user';
+  private apiUrl = environment.apiUrl;
+  private readonly TOKEN_KEY = 'auth_token';
+  private readonly USER_KEY = 'current_user';
 
   constructor(
+    private http: HttpClient,
     private router: Router,
     private notificationService: NotificationService
   ) {
-    this.initializeDemoUsers();
-    this.loadCurrentUser();
+    this.loadStoredUser();
   }
 
-  private initializeDemoUsers(): void {
-    if (!localStorage.getItem(this.USERS_KEY)) {
-      const demoUsers: User[] = [
-        {
-          id: '1',
-          name: 'John Doe',
-          email: 'blotor.raul@yahoo.com',
-          password: 'password123',
-          avatarUrl: 'https://i.pravatar.cc/150?img=1',
-          role: 'user',
-          isBanned: false,
-          phone: '+40753420201',
-          score: 0
-        },
-        {
-          id: '2',
-          name: 'Jane Smith',
-          email: 'jane@example.com',
-          password: 'password123',
-          avatarUrl: 'https://i.pravatar.cc/150?img=2',
-          role: 'user',
-          isBanned: false,
-          phone: '+407xxxxxxxx',
-          score: 0
-        },
-        {
-          id: '3',
-          name: 'Mike Johnson',
-          email: 'mike@example.com',
-          password: 'password123',
-          avatarUrl: 'https://i.pravatar.cc/150?img=3',
-          role: 'user',
-          isBanned: false,
-          phone: '',
-          score: 0
-        },
-        {
-          id: '4',
-          name: 'Admin User',
-          email: 'admin@example.com',
-          password: 'admin123',
-          avatarUrl: 'https://i.pravatar.cc/150?img=4',
-          role: 'admin',
-          isBanned: false,
-          phone: '',
-          score: 0
-        }
-      ];
-      localStorage.setItem(this.USERS_KEY, JSON.stringify(demoUsers));
-    } else {
-      const users = this.getUsers();
-      const adminExists = users.some(u => u.email === 'admin@example.com' && u.role === 'admin');
-      if (!adminExists) {
-        users.push({
-          id: '4',
-          name: 'Admin User',
-          email: 'admin@example.com',
-          password: 'admin123',
-          avatarUrl: 'https://i.pravatar.cc/150?img=4',
-          role: 'admin',
-          isBanned: false,
-          phone: '',
-          score: 0
-        });
-        localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
+  private loadStoredUser(): void {
+    const storedUser = localStorage.getItem(this.USER_KEY);
+    if (storedUser) {
+      try {
+        const user = JSON.parse(storedUser);
+        this.currentUserSubject.next(user);
+      } catch (error) {
+        console.error('Error parsing stored user:', error);
+        localStorage.removeItem(this.USER_KEY);
+        localStorage.removeItem(this.TOKEN_KEY);
       }
-    }
-  }
-
-  private loadCurrentUser(): void {
-    const savedUser = localStorage.getItem(this.CURRENT_USER_KEY);
-    if (savedUser) {
-      const user = JSON.parse(savedUser);
-      if (user.isBanned) {
-        this.logout();
-        return;
-      }
-      this.currentUserSubject.next(user);
     }
   }
 
@@ -120,207 +57,150 @@ export class AuthService {
     return this.currentUserSubject.value;
   }
 
-  private getUsers(): User[] {
-    const users = localStorage.getItem(this.USERS_KEY);
-    return users ? JSON.parse(users) : [];
+  register(user: Omit<User, 'id'>): Observable<boolean> {
+    return this.http.post<User>(`${this.apiUrl}/auth/register`, user).pipe(
+      map(newUser => {
+        console.log('User registered successfully:', newUser);
+        return true;
+      }),
+      catchError(error => {
+        console.error('Registration error:', error);
+        return of(false);
+      })
+    );
   }
 
-  register(user: Omit<User, 'id'>): boolean {
-    const users = this.getUsers();
-    
-    if (users.some(u => u.email === user.email)) {
-      return false;
-    }
-
-    const newUser: User = {
-      ...user,
-      id: Date.now().toString(),
-      isBanned: false
-    };
-
-    users.push(newUser);
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    return true;
-  }
-
-  login(email: string, password: string): boolean {
-    const users = this.getUsers();
-    const user = users.find(u => u.email === email && u.password === password);
-    
-    if (user) {
-      if (user.isBanned) {
-        throw new Error('Your account has been blocked. Please contact support for more information.');
-      }
-      localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(user));
-      this.currentUserSubject.next(user);
-      return true;
-    }
-    
-    return false;
+  login(email: string, password: string): Observable<boolean> {
+    console.log('Attempting login with:', { email });
+    return this.http.post<User>(`${this.apiUrl}/auth/login`, { email, password }).pipe(
+      map(user => {
+        if (user) {
+          localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+          this.currentUserSubject.next(user);
+          return true;
+        }
+        return false;
+      }),
+      catchError(error => {
+        if (error.status === 403) {
+          alert('Contul tău a fost banat de un administrator!');
+        } else {
+          alert('Login failed! Verifică datele.');
+        }
+        return of(false);
+      })
+    );
   }
 
   logout(): void {
-    localStorage.removeItem(this.CURRENT_USER_KEY);
+    localStorage.removeItem(this.TOKEN_KEY);
+    localStorage.removeItem(this.USER_KEY);
     this.currentUserSubject.next(null);
     this.router.navigate(['/auth']);
   }
 
-  getAllUsers(): User[] {
-    return this.getUsers().map(user => {
-      const { password, ...safeUser } = user;
-      return safeUser as User;
-    });
+  getAllUsers(): Observable<User[]> {
+    return this.http.get<User[]>(`${this.apiUrl}/auth/users`);
   }
 
-  updateUser(userId: string, updates: Partial<User>): boolean {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
-
-    users[userIndex] = { ...users[userIndex], ...updates };
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-
-    const currentUser = this.currentUserSubject.value;
-    if (currentUser && currentUser.id === userId) {
-      const updatedUser = { ...currentUser, ...updates };
-      if (updatedUser.isBanned) {
-        this.logout();
+  updateUser(userId: string, updates: Partial<User>): Observable<boolean> {
+    return this.http.put<User>(`${this.apiUrl}/auth/update-profile`, updates).pipe(
+      map(updatedUser => {
+        const currentUser = this.currentUserSubject.value;
+        if (currentUser && currentUser.id === userId) {
+          if (updatedUser.isBanned) {
+            this.logout();
+            return true;
+          }
+          this.currentUserSubject.next(updatedUser);
+          localStorage.setItem(this.USER_KEY, JSON.stringify(updatedUser));
+        }
         return true;
-      }
-      this.currentUserSubject.next(updatedUser);
-      localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(updatedUser));
-    }
+      }),
+      catchError(error => {
+        console.error('Update user error:', error);
+        return of(false);
+      })
+    );
+  }
 
-    return true;
+  isAuthenticated(): boolean {
+    return !!this.currentUserSubject.value;
   }
 
   isAdmin(): boolean {
-    const currentUser = this.getCurrentUserValue();
-    return currentUser?.role === 'admin';
+    const user = this.currentUserSubject.value;
+    return user?.role === 'admin';
   }
 
   hasPermission(action: 'delete' | 'edit' | 'admin', resourceOwnerId: string): boolean {
-    const currentUser = this.getCurrentUserValue();
-    if (!currentUser) return false;
-    
-    if (currentUser.role === 'admin') return true;
-    
-    if (action === 'admin') return false;
-    
-    return currentUser.id === resourceOwnerId;
-  }
+    const user = this.currentUserSubject.value;
+    if (!user) return false;
 
-  async banUser(userId: string): Promise<boolean> {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
-    if (users[userIndex].role === 'admin') return false;
-
-    users[userIndex].isBanned = true;
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-
-    try {
-      console.log('[BAN] Trimit notificare email către:', users[userIndex].email);
-      await this.notificationService.sendBanEmail(
-        users[userIndex].name,
-        users[userIndex].email,
-        'Încălcare reguli'
-      );
-      if (users[userIndex].phone) {
-        console.log('[BAN] Trimit SMS către:', users[userIndex].phone);
-        await this.notificationService.sendBanSMS(
-          users[userIndex].phone,
-          users[userIndex].name,
-          'Încălcare reguli'
-        );
-      } else {
-        console.warn('[BAN] Userul nu are număr de telefon pentru SMS.');
-      }
-    } catch (error) {
-      console.error('[BAN] Eroare la trimiterea notificărilor:', error);
+    if (action === 'admin') {
+      return user.role === 'admin';
     }
 
-    const currentUser = this.getCurrentUserValue();
-    if (currentUser && currentUser.id === userId) {
-      this.logout();
-    }
-
-    return true;
+    return user.role === 'admin' || user.id === resourceOwnerId;
   }
 
-  unbanUser(userId: string): boolean {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
-
-    users[userIndex].isBanned = false;
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    return true;
+  banUser(userId: string): Observable<boolean> {
+    return this.http.post(`${this.apiUrl}/auth/ban/${userId}`, {}).pipe(
+      map(() => {
+        const currentUser = this.currentUserSubject.value;
+        if (currentUser && currentUser.id === userId) {
+          this.logout();
+        }
+        return true;
+      }),
+      catchError(error => {
+        console.error('Ban user error:', error);
+        return of(false);
+      })
+    );
   }
 
-  updateScoreForPostVote(userId: string, isUpvote: boolean): boolean {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
-
-    const scoreChange = isUpvote ? 1 : -1;
-    users[userIndex].score = (users[userIndex].score || 0) + scoreChange;
-    
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    
-    const currentUser = this.currentUserSubject.value;
-    if (currentUser && currentUser.id === userId) {
-      const updatedUser = { ...currentUser, score: users[userIndex].score };
-      this.currentUserSubject.next(updatedUser);
-      localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(updatedUser));
-    }
-
-    return true;
+  unbanUser(userId: string): Observable<boolean> {
+    return this.http.post(`${this.apiUrl}/auth/unban/${userId}`, {}).pipe(
+      map(() => true),
+      catchError(error => {
+        console.error('Unban user error:', error);
+        return of(false);
+      })
+    );
   }
 
-  updateScoreForCommentVote(userId: string, isUpvote: boolean): boolean {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
-
-    const scoreChange = isUpvote ? 2 : -2;
-    users[userIndex].score = (users[userIndex].score || 0) + scoreChange;
-    
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    
-    const currentUser = this.currentUserSubject.value;
-    if (currentUser && currentUser.id === userId) {
-      const updatedUser = { ...currentUser, score: users[userIndex].score };
-      this.currentUserSubject.next(updatedUser);
-      localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(updatedUser));
-    }
-
-    return true;
+  updateScoreForPostVote(userId: string, isUpvote: boolean): Observable<boolean> {
+    return this.http.put(`${this.apiUrl}/auth/score/${userId}`, { isUpvote }).pipe(
+      map(() => true),
+      catchError(error => {
+        console.error('Update score error:', error);
+        return of(false);
+      })
+    );
   }
 
-  updateScoreForDownvotingComment(userId: string, isUpvote: boolean = false): boolean {
-    const users = this.getUsers();
-    const userIndex = users.findIndex(u => u.id === userId);
-    
-    if (userIndex === -1) return false;
+  updateScoreForCommentVote(userId: string, isUpvote: boolean): Observable<boolean> {
+    return this.http.put(`${this.apiUrl}/auth/score/${userId}`, { isUpvote }).pipe(
+      map(() => true),
+      catchError(error => {
+        console.error('Update score error:', error);
+        return of(false);
+      })
+    );
+  }
 
-    const scoreChange = isUpvote ? -1 : 1;
-    users[userIndex].score = (users[userIndex].score || 0) + scoreChange;
-    
-    localStorage.setItem(this.USERS_KEY, JSON.stringify(users));
-    
-    const currentUser = this.currentUserSubject.value;
-    if (currentUser && currentUser.id === userId) {
-      const updatedUser = { ...currentUser, score: users[userIndex].score };
-      this.currentUserSubject.next(updatedUser);
-      localStorage.setItem(this.CURRENT_USER_KEY, JSON.stringify(updatedUser));
-    }
+  updateScoreForDownvotingComment(userId: string, isUpvote: boolean = false): Observable<boolean> {
+    return this.http.put(`${this.apiUrl}/auth/score/${userId}`, { isUpvote }).pipe(
+      map(() => true),
+      catchError(error => {
+        console.error('Update score error:', error);
+        return of(false);
+      })
+    );
+  }
 
-    return true;
+  getToken(): string | null {
+    return localStorage.getItem(this.TOKEN_KEY);
   }
 }

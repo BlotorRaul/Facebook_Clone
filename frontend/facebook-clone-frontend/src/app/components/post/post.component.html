@@ -1,182 +1,147 @@
-<div class="post">
+<div class="post-container">
   <div class="post-header">
-    <div class="post-author">
-      <img [src]="post.author.avatarUrl" [alt]="post.author.name" class="author-avatar">
-      <div class="author-info">
-        <div class="author-name-time">
-          <a href="#" class="author-name">{{post.author.name}}</a>
-          <span class="user-score">(Score: {{getAuthorScore()}})</span>
-          <span class="post-time">{{post.timePosted | date:'MMM d, y, h:mm a'}}</span>
-        </div>
-        <div class="post-visibility">
-          <i class="fas fa-globe-americas"></i>
-        </div>
+    <div class="author-info">
+      <img [src]="post.author.avatarUrl" alt="Avatar" class="avatar">
+      <div class="post-info">
+        <span class="author-name">{{ post.author.name }} <span class="author-score">({{ post.author.score || 0 }}p)</span></span>
+        <span class="post-time">{{ post.timePosted | date:'medium' }}</span>
       </div>
     </div>
-    <div class="post-actions" *ngIf="canModifyPost">
-      <div *ngIf="isAdmin" class="post-status" [class]="getStatusClass()">
-        {{getStatusText()}}
-      </div>
-      <button class="action-button" (click)="onEditClick()" title="Edit post">
-        <i class="fas fa-edit"></i>
-      </button>
-      <button class="action-button" (click)="onDeleteClick()" title="Delete post">
-        <i class="fas fa-trash"></i>
-      </button>
-      <button *ngIf="isAdmin" 
-              class="action-button" 
-              (click)="toggleCommentsAvailability()" 
-              [title]="post.commentsDisabled ? 'Enable comments' : 'Disable comments'">
-        <i class="fas" [class.fa-comment-slash]="post.commentsDisabled" [class.fa-comment]="!post.commentsDisabled"></i>
+    <div class="post-actions-menu" *ngIf="hasPermission('admin', post.author.id) && !isAdmin">
+      <button class="menu-button">
+        <i class="fas fa-ellipsis-h"></i>
       </button>
     </div>
   </div>
 
   <div class="post-content" *ngIf="!isEditing">
-    <p class="post-title" *ngIf="post.title">{{post.title}}</p>
-    <p>{{post.content}}</p>
+    <h2 *ngIf="post.title" class="post-title">{{ post.title }}</h2>
+    <p class="post-text">{{ post.content }}</p>
+    <img *ngIf="post.imageUrl" [src]="getImageUrl(post.imageUrl)" alt="Post image" class="post-image">
     <div class="post-tags" *ngIf="post.tags && post.tags.length > 0">
-      <span class="tag" *ngFor="let tag of post.tags">{{tag.name}}</span>
+      <span class="tag" *ngFor="let tag of post.tags">
+        #{{ tag.name }}
+      </span>
     </div>
-    <img *ngIf="post.imageUrl" [src]="post.imageUrl" [alt]="'Post by ' + post.author.name" class="post-image">
+    <div class="post-status" *ngIf="hasPermission('admin', post.author.id)">
+      <span class="status-label">Status:</span>
+      <select [(ngModel)]="post.status" (change)="updateStatus()" class="status-select">
+        <option [value]="PostStatus.JUST_POSTED">Primită</option>
+        <option [value]="PostStatus.IN_PROGRESS">În curs de rezolvare</option>
+        <option [value]="PostStatus.RESOLVED">Rezolvată</option>
+      </select>
+    </div>
+    <div class="post-status" *ngIf="!hasPermission('admin', post.author.id)">
+      <span class="status-label">Status:</span>
+      <span class="status-value">{{ getStatusLabel(post.status) }}</span>
+    </div>
   </div>
 
-  <div class="edit-form" *ngIf="isEditing">
-    <textarea [(ngModel)]="editContent" class="edit-textarea"></textarea>
-    <div class="edit-actions">
-      <button (click)="saveEdit()" class="save-button">Save</button>
-      <button (click)="cancelEdit()" class="cancel-button">Cancel</button>
-    </div>
+  <div *ngIf="isEditing" class="edit-post-form">
+    <textarea [(ngModel)]="editContent" placeholder="Edit post..." class="edit-post-input"></textarea>
+    <button class="save-button" (click)="saveEdit()">
+      <i class="fas fa-check"></i> Save
+    </button>
+    <button class="cancel-button" (click)="cancelEdit()">
+      <i class="fas fa-times"></i> Cancel
+    </button>
   </div>
 
   <div class="post-stats">
-    <div class="likes-info" *ngIf="post.likesCount > 0">
-      <span class="like-icon">
-        <i class="fas fa-thumbs-up"></i>
-      </span>
-      <span class="likes-count">{{post.likesCount}}</span>
+    <div class="likes-count">
+      <i class="fas fa-thumbs-up"></i>
+      <span>{{ post.likesCount }}</span>
     </div>
-    <div class="comments-shares-info">
-      <span *ngIf="post.commentsCount > 0" class="comments-count">
-        {{post.commentsCount}} {{post.commentsCount === 1 ? 'comment' : 'comments'}}
-      </span>
+    <div class="comments-count">
+      <i class="fas fa-comment"></i>
+      <span>{{ post.comments.length || 0 }}</span>
     </div>
   </div>
 
-  <div class="interaction-divider"></div>
-
-  <div class="interaction-buttons">
-    <button class="interaction-button" 
-            (click)="likePost()" 
-            [class.active]="post.likedBy.includes(currentUser?.name || '')"
-            [class.disabled]="!canVoteOnPost()"
-            [title]="!canVoteOnPost() ? 'You cannot like your own post' : ''">
-      <i class="far fa-thumbs-up" [class.fas]="post.likedBy.includes(currentUser?.name || '')"
-         [class.active-icon]="post.likedBy.includes(currentUser?.name || '')"></i>
-      <span [class.active-text]="post.likedBy.includes(currentUser?.name || '')">
-        {{post.likedBy.includes(currentUser?.name || '') ? 'Liked' : 'Like'}}
-      </span>
+  <div class="post-actions">
+    <button class="action-button" (click)="likePost()" [class.liked]="post.likedBy.includes(currentUser?.name || '')">
+      <i class="fas fa-thumbs-up"></i>
+      <span>Like</span>
     </button>
-    <button class="interaction-button" 
-            (click)="toggleComments()" 
-            [class.disabled]="post.commentsDisabled"
-            [title]="post.commentsDisabled ? 'Comments are disabled' : ''">
-      <i class="far fa-comment-alt"></i>
+    <button class="action-button" (click)="dislikePost()" [class.disliked]="(post.dislikedBy?.includes(currentUser?.name || ''))">
+      <i class="fas fa-thumbs-down"></i>
+      <span>Dislike</span>
+    </button>
+    <button class="action-button" (click)="toggleComments()">
+      <i class="fas fa-comment"></i>
       <span>Comment</span>
     </button>
-    <button class="interaction-button">
-      <i class="fas fa-share"></i>
-      <span>Share</span>
+    <button class="action-button" *ngIf="hasPermission('admin', post.author.id)" (click)="toggleCommentsAvailability()">
+      <i class="fas" [class.fa-comment-slash]="post.commentsDisabled" [class.fa-comment]="!post.commentsDisabled"></i>
+      <span>{{ post.commentsDisabled ? 'Enable Comments' : 'Disable Comments' }}</span>
+    </button>
+    <button *ngIf="canModifyPost" class="edit-icon-button" (click)="onEditClick()" [disabled]="isEditing" title="Edit post">
+      <i class="fas fa-pen"></i>
+    </button>
+    <button *ngIf="canModifyPost" class="delete-icon-button" (click)="onDeleteClick()" title="Delete post">
+      <i class="fas fa-trash"></i>
     </button>
   </div>
 
-  <div class="interaction-divider"></div>
-
-  <div class="comments-section" *ngIf="showComments && !post.commentsDisabled">
-    <div class="add-comment">
-      <img [src]="currentUser?.avatarUrl" [alt]="currentUser?.name" class="commenter-avatar">
+  <div class="comments-section" *ngIf="!post.commentsDisabled">
+    <div class="comment-form" *ngIf="currentUser">
+      <img [src]="currentUser.avatarUrl" alt="Your avatar" class="avatar">
       <div class="comment-input-container">
-        <div class="comment-input-wrapper">
-          <input type="text" 
-                 [(ngModel)]="newComment" 
-                 placeholder="Write a comment..."
-                 (keyup.enter)="addComment()"
-                 class="comment-input">
-          <div class="comment-tools">
-            <label class="image-upload" title="Add image">
-              <i class="fas fa-camera"></i>
-              <input type="file" (change)="onCommentImageSelected($event)" accept="image/*" hidden>
-            </label>
-            <button class="send-comment" (click)="addComment()" [disabled]="!newComment.trim() && !commentImage">
-              <i class="fas fa-paper-plane"></i>
-            </button>
-          </div>
-        </div>
-        <div *ngIf="commentImage" class="comment-image-preview">
-          <img [src]="commentImage" alt="Comment image">
-          <button class="remove-image" (click)="removeCommentImage()">×</button>
-        </div>
+        <textarea [(ngModel)]="newComment" placeholder="Write a comment..." class="comment-input"></textarea>
+        <input type="file" (change)="onCommentImageSelected($event)" accept="image/*" style="display:none" #commentImageInput>
+        <button type="button" (click)="commentImageInput.click()" class="comment-image-btn">
+          <i class="fas fa-image"></i>
+        </button>
+        <button (click)="addComment()" class="comment-submit">
+          <i class="fas fa-paper-plane"></i>
+        </button>
+      </div>
+      <div *ngIf="commentImagePreview" class="comment-image-preview">
+        <img [src]="commentImagePreview" alt="Preview" style="max-width:100px;max-height:100px;">
+        <button (click)="removeCommentImage()" class="remove-image">×</button>
       </div>
     </div>
 
     <div class="comments-list">
-      <div class="comment" *ngFor="let comment of post.comments" [class.highlight]="comment.id === highlightedCommentId">
-        <img [src]="comment.author.avatarUrl" [alt]="comment.author.name" class="commenter-avatar">
+      <div class="comment" *ngFor="let comment of post.comments">
+        <div class="comment-header">
+          <img [src]="comment.author.avatarUrl" alt="Avatar" class="avatar">
+          <div class="comment-info">
+            <span class="author-name">{{ comment.author.name }} <span class="author-score">({{ comment.author.score || 0 }}p)</span></span>
+            <span class="comment-time">{{ comment.timePosted | date:'medium' }}</span>
+            <p class="comment-content-text">{{ comment.content }}</p>
+          </div>
+        </div>
         <div class="comment-content">
-          <div class="comment-main">
-            <div class="comment-header">
-              <a href="#" class="commenter-name">{{comment.author.name}}</a>
-              <div class="comment-actions" *ngIf="canModifyComment(comment)">
-                <button class="action-button" (click)="onEditCommentClick(comment)">
-                  <i class="fas fa-edit"></i>
-                </button>
-                <button class="action-button" (click)="deleteComment(comment)">
-                  <i class="fas fa-trash"></i>
-                </button>
-              </div>
-            </div>
-            <div *ngIf="!isEditingComment || editingCommentId !== comment.id" class="comment-text">
-              <p>{{comment.content}}</p>
-              <img *ngIf="comment.imageUrl" [src]="comment.imageUrl" alt="Comment image" class="comment-image">
-            </div>
-            <div *ngIf="isEditingComment && editingCommentId === comment.id" class="edit-comment-form">
-              <textarea [(ngModel)]="editCommentContent" class="edit-textarea"></textarea>
-              <div class="edit-actions">
-                <button (click)="saveCommentEdit(comment)" class="save-button">Save</button>
-                <button (click)="cancelCommentEdit()" class="cancel-button">Cancel</button>
-              </div>
-            </div>
-          </div>
-          <div class="comment-footer">
-            <div class="comment-actions-row">
-              <button class="action-link" 
-                      (click)="likeComment(comment)" 
-                      [class.active]="comment.likedBy.includes(currentUser?.name || '')"
-                      [class.disabled]="!canVoteOnComment(comment)"
-                      [title]="!canVoteOnComment(comment) ? 'You cannot like your own comment' : ''">
-                Like
-              </button>
-              <button class="action-link" 
-                      (click)="dislikeComment(comment)"
-                      [class.active]="comment.dislikedBy.includes(currentUser?.name || '')"
-                      [class.disabled]="!canVoteOnComment(comment)"
-                      [title]="!canVoteOnComment(comment) ? 'You cannot dislike your own comment' : ''">
-                Dislike
-              </button>
-              <span class="dot">·</span>
-              <span class="comment-time">{{comment.timePosted | date:'shortTime'}}</span>
-            </div>
-            <div class="reactions-info" *ngIf="comment.likes > 0 || comment.dislikes > 0">
-              <span *ngIf="comment.likes > 0" class="likes-count">
-                <i class="fas fa-thumbs-up"></i>
-                {{comment.likes}}
-              </span>
-              <span *ngIf="comment.dislikes > 0" class="dislikes-count">
-                <i class="fas fa-thumbs-down"></i>
-                {{comment.dislikes}}
-              </span>
-            </div>
-          </div>
+          <img *ngIf="comment.imageUrl" [src]="getImageUrl(comment.imageUrl)" alt="Comment image" class="comment-image">
+        </div>
+        <div class="comment-votes">
+          <button class="comment-like-btn" (click)="likeComment(comment)" [class.liked]="hasLikedComment(comment)" title="Like">
+            <i class="fas fa-thumbs-up"></i>
+          </button>
+          <span class="comment-score" [ngClass]="{'negative': (comment.likes || 0) - (comment.dislikes || 0) < 0, 'positive': (comment.likes || 0) - (comment.dislikes || 0) > 0}">
+            {{ (comment.likes || 0) - (comment.dislikes || 0) }}
+          </span>
+          <button class="comment-dislike-btn" (click)="dislikeComment(comment)" [class.disliked]="hasDislikedComment(comment)" title="Dislike">
+            <i class="fas fa-thumbs-down"></i>
+          </button>
+        </div>
+        <div class="comment-actions" *ngIf="hasPermission('edit', comment.author.id)">
+          <button class="edit-button" (click)="editComment(comment)" *ngIf="!isEditingComment || editingCommentId !== comment.id">
+            <i class="fas fa-edit"></i>
+          </button>
+          <button class="save-button" (click)="saveCommentEdit(comment)" *ngIf="isEditingComment && editingCommentId === comment.id">
+            <i class="fas fa-check"></i>
+          </button>
+          <button class="cancel-button" (click)="cancelCommentEdit()" *ngIf="isEditingComment && editingCommentId === comment.id">
+            <i class="fas fa-times"></i>
+          </button>
+          <button class="delete-button" (click)="deleteComment(comment)">
+            <i class="fas fa-trash"></i>
+          </button>
+        </div>
+        <div class="comment-edit-form" *ngIf="isEditingComment && editingCommentId === comment.id">
+          <textarea [(ngModel)]="editCommentContent" placeholder="Edit comment..." class="edit-comment-input"></textarea>
         </div>
       </div>
     </div>
@@ -184,9 +149,405 @@
 </div>
 
 <style>
+body, html {
+  background: #f0f2f5 !important;
+}
+
+.post-container {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin: 32px auto;
+  padding: 28px 32px;
+  max-width: 600px;
+  border: 1px solid #e4e6eb;
+}
+
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.author-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.post-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.author-name {
+  font-weight: 600;
+  color: #1c1e21;
+}
+
+.post-time {
+  font-size: 0.8em;
+  color: #65676b;
+}
+
+.post-content {
+  margin-bottom: 12px;
+}
+
+.post-title {
+  font-size: 1.2em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.post-text {
+  color: #1c1e21;
+  line-height: 1.4;
+}
+
+.post-image {
+  width: 100%;
+  max-height: 500px;
+  object-fit: contain;
+  border-radius: 4px;
+  margin-top: 8px;
+}
+
+.post-stats {
+  display: flex;
+  gap: 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid #e4e6eb;
+  color: #65676b;
+  font-size: 0.9em;
+}
+
+.post-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 12px;
+  padding: 12px 0 0 0;
+  border-top: 1px solid #e4e6eb;
+  background: #f6f7f9;
+  border-radius: 0 0 12px 12px;
+}
+
+.action-button, .edit-icon-button, .delete-icon-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border: none;
+  background: none;
+  color: #65676b;
+  font-weight: 600;
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background-color 0.2s, color 0.2s;
+  font-size: 1.1em;
+}
+
+.action-button:hover, .edit-icon-button:hover, .delete-icon-button:hover {
+  background-color: #e7f3ff;
+  color: #1877f2;
+}
+
+.edit-icon-button {
+  background: none;
+  color: #65676b;
+  font-size: 1.2em;
+  padding: 8px;
+}
+
+.delete-icon-button {
+  background: none;
+  color: #e53935;
+  font-size: 1.2em;
+  padding: 8px;
+}
+
+.edit-icon-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.comments-section {
+  margin-top: 12px;
+}
+
+.comment-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.comment-input-container {
+  flex: 1;
+  display: flex;
+  gap: 8px;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 12px;
+}
+
+.comment-input {
+  flex: 1;
+  border: none;
+  background: none;
+  resize: none;
+  outline: none;
+  font-size: 0.9em;
+}
+
+.comment-submit {
+  border: none;
+  background: none;
+  color: #1877f2;
+  cursor: pointer;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.comment {
+  background: #f0f2f5;
+  border-radius: 8px;
+  padding: 10px 16px;
+  margin-bottom: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+.comment-header {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+
+.comment-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.author-name {
+  font-weight: 600;
+  color: #1c1e21;
+  font-size: 1em;
+}
+
+.comment-time {
+  font-size: 0.8em;
+  color: #65676b;
+}
+
+.comment-content-text {
+  margin: 2px 0 0 0;
+  color: #1c1e21;
+  font-size: 0.98em;
+}
+
+.comment-content {
+  margin-left: 50px;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  margin-left: 48px;
+}
+
+.comment-actions button {
+  border: none;
+  background: none;
+  color: #65676b;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.comment-actions button:hover {
+  background-color: #e4e6eb;
+}
+
+.comment-edit-form {
+  margin-top: 8px;
+  margin-left: 48px;
+}
+
+.edit-comment-input {
+  width: 100%;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  padding: 8px;
+  resize: none;
+  outline: none;
+}
+
 .user-score {
   font-size: 0.8em;
   color: #65676b;
   margin-left: 5px;
+}
+
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.tag {
+  background-color: #e4e6eb;
+  color: #1877f2;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 0.9em;
+  font-weight: 500;
+}
+
+.tag:hover {
+  background-color: #d8dadf;
+  cursor: pointer;
+}
+
+.post-status {
+  margin-top: 12px;
+  padding: 8px;
+  background-color: #f0f2f5;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.status-label {
+  font-weight: 600;
+  color: #65676b;
+}
+
+.status-select {
+  padding: 4px 8px;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  background-color: white;
+  color: #1c1e21;
+  cursor: pointer;
+}
+
+.status-value {
+  color: #1877f2;
+  font-weight: 500;
+}
+
+.edit-post-form {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.edit-post-input {
+  width: 100%;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  padding: 8px;
+  resize: none;
+  outline: none;
+}
+
+.save-button, .cancel-button {
+  background: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  margin-right: 8px;
+  cursor: pointer;
+}
+
+.cancel-button {
+  background: #e4e6eb;
+  color: #65676b;
+}
+
+.comment-votes {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 48px;
+  margin-top: 4px;
+}
+
+.comment-like-btn, .comment-dislike-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #65676b;
+  font-size: 1.1em;
+  border-radius: 50%;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, transform 0.1s;
+}
+
+.comment-like-btn.liked {
+  color: #1877f2;
+  background-color: #e7f3ff;
+}
+
+.comment-dislike-btn.disliked {
+  color: #e53935;
+  background-color: #ffebee;
+}
+
+.comment-like-btn:hover {
+  background-color: #e7f3ff;
+  color: #1877f2;
+  transform: scale(1.08);
+}
+
+.comment-dislike-btn:hover {
+  background-color: #ffebee;
+  color: #e53935;
+  transform: scale(1.08);
+}
+
+.comment-score {
+  min-width: 24px;
+  text-align: center;
+  font-size: 1em;
+  font-weight: 600;
+  color: #65676b;
+  margin: 0 2px;
+}
+
+.comment-score.positive {
+  color: #1877f2;
+}
+
+.comment-score.negative {
+  color: #e53935;
+}
+
+.author-score {
+  font-size: 0.95em;
+  color: #888;
+  font-weight: 400;
+  margin-left: 2px;
 }
 </style>

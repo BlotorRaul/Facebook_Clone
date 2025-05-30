@@ -2,6 +2,8 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { AuthService, User } from '../../services/auth.service';
 import { Router } from '@angular/router';
+import { Observable } from 'rxjs';
+import { NotificationService } from '../../services/notification.service';
 
 @Component({
   selector: 'app-dashboard',
@@ -21,7 +23,7 @@ import { Router } from '@angular/router';
       <div class="users-section">
         <h3>User Management</h3>
         <div class="users-list">
-          <div class="user-card" *ngFor="let user of users">
+          <div class="user-card" *ngFor="let user of users$ | async">
             <div class="user-info">
               <img [src]="user.avatarUrl" [alt]="user.name" class="user-avatar">
               <div class="user-details">
@@ -200,45 +202,64 @@ import { Router } from '@angular/router';
   `]
 })
 export class DashboardComponent implements OnInit {
-  users: User[] = [];
+  users$: Observable<User[]>;
+  currentUser: User | null = null;
   isProcessing: boolean = false;
 
   constructor(
     private authService: AuthService,
-    private router: Router
-  ) {}
-
-  ngOnInit() {
-    if (!this.authService.isAdmin()) {
-      this.router.navigate(['/home']);
-      return;
-    }
-    this.loadUsers();
+    private router: Router,
+    private notificationService: NotificationService
+  ) {
+    this.users$ = this.authService.getAllUsers();
+    this.currentUser = this.authService.getCurrentUserValue();
   }
 
-  loadUsers() {
-    this.users = this.authService.getAllUsers();
+  ngOnInit(): void {
+    if (!this.currentUser || !this.authService.isAdmin()) {
+      this.router.navigate(['/home']);
+    }
   }
 
   async toggleBan(user: User) {
     if (this.isProcessing) return;
-    
     this.isProcessing = true;
     try {
       if (user.isBanned) {
-        this.authService.unbanUser(user.id);
+        this.authService.unbanUser(user.id).subscribe(success => {
+          if (success) {
+            this.users$ = this.authService.getAllUsers();
+          }
+          this.isProcessing = false;
+        });
       } else {
-        await this.authService.banUser(user.id);
+        this.authService.banUser(user.id).subscribe(success => {
+          if (success) {
+            this.notificationService.notifyUserBlocked(user.email, user.name)
+              .then(() => console.log('[Dashboard] Ban email sent successfully'))
+              .catch((error: Error) => console.error('[Dashboard] Failed to send ban email:', error));
+
+            if (user.phone) {
+              this.notificationService.sendBanSMS(user.phone, user.name)
+                .then(() => console.log('[Dashboard] Ban SMS sent successfully'))
+                .catch((error: Error) => console.error('[Dashboard] Failed to send ban SMS:', error));
+            }
+            this.users$ = this.authService.getAllUsers();
+          }
+          this.isProcessing = false;
+        });
       }
-      this.loadUsers();
     } catch (error) {
       console.error('Eroare la blocarea/deblocarea utilizatorului:', error);
-    } finally {
       this.isProcessing = false;
     }
   }
 
   goBack() {
     this.router.navigate(['/home']);
+  }
+
+  hasPermission(action: 'delete' | 'edit' | 'admin', resourceOwnerId: string): boolean {
+    return this.authService.hasPermission(action, resourceOwnerId);
   }
 }

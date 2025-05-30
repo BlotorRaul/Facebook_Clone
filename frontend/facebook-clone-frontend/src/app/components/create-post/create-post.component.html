@@ -1,0 +1,13 @@
+<form (ngSubmit)="createPost()" #postForm="ngForm">
+  <div>
+    <label for="title">Titlu</label>
+    <input id="title" name="title" [(ngModel)]="post.title" required />
+  </div>
+  <div>
+    <label for="content">Conținut</label>
+    <textarea id="content" name="content" [(ngModel)]="post.content" required></textarea>
+  </div>
+  <button type="submit" [disabled]="submitting || !postForm.form.valid">Creează postare</button>
+  <div *ngIf="successMsg" style="color: green;">{{ successMsg }}</div>
+  <div *ngIf="errorMsg" style="color: red;">{{ errorMsg }}</div>
+</form> 

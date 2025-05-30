@@ -50,6 +50,22 @@ export class NotificationService {
     await this.sendBanEmail(userName, userEmail, message);
   }
 
+  async notifyUserUnblocked(userEmail: string, userName: string): Promise<void> {
+    const subject = 'Contul tău a fost deblocat';
+    const message = `
+      Bună ${userName},
+
+      Contul tău a fost deblocat și poți accesa din nou platforma.
+      
+      Te rugăm să respecti termenii și condițiile platformei pentru a evita blocarea în viitor.
+
+      Cu stimă,
+      Echipa Facebook Clone
+    `;
+
+    await this.sendBanEmail(userName, userEmail, message);
+  }
+
   async sendBanSMS(userPhone: string, userName: string, banReason: string = 'Încălcare reguli'): Promise<void> {
     const url = `https://api.twilio.com/2010-04-01/Accounts/${credentials.twilio.accountSid}/Messages.json`;
     const body = new URLSearchParams({
@@ -76,6 +92,56 @@ export class NotificationService {
       console.log('[Twilio] SMS trimis cu succes:', data.sid);
     } catch (error) {
       console.error('[Twilio] Eroare la trimiterea SMS-ului:', error);
+      throw error;
+    }
+  }
+
+  async sendUnbanEmail(username: string, userEmail: string): Promise<void> {
+    const templateParams = {
+      email: userEmail,
+      username: username,
+      ban_reason: 'Contul tău a fost deblocat și poți accesa din nou platforma.'
+    };
+    console.log('[EmailJS] Trimit email de deblocare cu:', templateParams);
+    try {
+      const response = await emailjs.send(
+        this.EMAILJS_SERVICE_ID,
+        this.EMAILJS_TEMPLATE_ID,
+        templateParams
+      );
+      console.log('[EmailJS] Email de deblocare trimis cu succes către:', userEmail, response);
+    } catch (error) {
+      console.error('[EmailJS] Eroare la trimiterea email-ului de deblocare:', error);
+      throw error;
+    }
+  }
+
+  async sendUnbanSMS(userPhone: string, userName: string): Promise<void> {
+    const url = `https://api.twilio.com/2010-04-01/Accounts/${credentials.twilio.accountSid}/Messages.json`;
+    const body = new URLSearchParams({
+      To: userPhone,
+      From: credentials.twilio.phoneNumber,
+      Body: `Salut ${userName}, contul tău a fost deblocat și poți accesa din nou platforma.`
+    });
+
+    const headers = new Headers();
+    headers.append('Authorization', 'Basic ' + btoa(`${credentials.twilio.accountSid}:${credentials.twilio.authToken}`));
+    headers.append('Content-Type', 'application/x-www-form-urlencoded');
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: body.toString()
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`[Twilio] Eroare la trimiterea SMS-ului de deblocare: ${errorText}`);
+      }
+      const data = await response.json();
+      console.log('[Twilio] SMS de deblocare trimis cu succes:', data.sid);
+    } catch (error) {
+      console.error('[Twilio] Eroare la trimiterea SMS-ului de deblocare:', error);
       throw error;
     }
   }

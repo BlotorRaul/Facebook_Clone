@@ -7,5 +7,101 @@
 <!-- * * * * * * * to get started with your project! * * * * * * * * -->
 <!-- * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * -->
 
-<router-outlet></router-outlet>
+<div class="main-login-register">
+  <div class="login-section">
+    <h2>Log In</h2>
+    <form #loginForm="ngForm">
+      <div class="form-group">
+        <label for="loginEmail"><b>Email</b></label>
+        <input type="email" id="loginEmail" name="loginEmail" placeholder="Email address" required />
+      </div>
+      <div class="form-group">
+        <label for="loginPassword"><b>Password</b></label>
+        <input type="password" id="loginPassword" name="loginPassword" placeholder="Password" required />
+      </div>
+      <button type="submit" class="login-button">Log In</button>
+    </form>
+  </div>
+  <div class="register-section">
+    <h2>Sign Up</h2>
+    <form #registerForm="ngForm">
+      <div class="form-group">
+        <label for="regName"><b>Full Name</b></label>
+        <input type="text" id="regName" name="regName" placeholder="Full name" required />
+      </div>
+      <div class="form-group">
+        <label for="regPhone"><b>Phone Number</b></label>
+        <input type="tel" id="regPhone" name="regPhone" placeholder="Phone (required, e.g. +40712345678)" required />
+      </div>
+      <div class="form-group">
+        <label for="regEmail"><b>Email</b></label>
+        <input type="email" id="regEmail" name="regEmail" placeholder="Email" required />
+      </div>
+      <div class="form-group">
+        <label for="regPassword"><b>Password</b></label>
+        <input type="password" id="regPassword" name="regPassword" placeholder="New password" required />
+      </div>
+      <div class="form-group">
+        <label for="regConfirmPassword"><b>Confirm Password</b></label>
+        <input type="password" id="regConfirmPassword" name="regConfirmPassword" placeholder="Confirm password" required />
+      </div>
+      <div class="form-group">
+        <label for="regAvatarUrl"><b>Avatar URL</b> <span style="font-weight:normal; color:#888;">(optional)</span></label>
+        <input type="text" id="regAvatarUrl" name="regAvatarUrl" placeholder="Avatar URL (optional)" />
+      </div>
+      <button type="submit" class="register-button">Sign Up</button>
+    </form>
+  </div>
+</div>
+<style>
+  .main-login-register {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-top: 40px;
+  }
+  .login-section, .register-section {
+    background: #fff;
+    padding: 32px 32px 24px 32px;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    margin-bottom: 32px;
+    width: 350px;
+  }
+  .login-section {
+    margin-bottom: 24px;
+  }
+  .form-group {
+    margin-bottom: 16px;
+  }
+  .form-group label {
+    display: block;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .form-group input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 15px;
+    box-sizing: border-box;
+  }
+  .register-button, .login-button {
+    width: 100%;
+    padding: 10px 0;
+    background: #1b74e4;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 16px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 8px;
+    transition: background 0.2s;
+  }
+  .register-button:hover, .login-button:hover {
+    background: #166fe5;
+  }
+</style>
 

@@ -24,11 +24,11 @@
       </a>
       <a href="#" class="menu-item">
         <i class="fas fa-user-friends"></i>
-        <span>Not-So-Secret Family Recipes</span>
+        <span>Friends</span>
       </a>
       <a href="#" class="menu-item">
         <i class="fas fa-users"></i>
-        <span>Red Table Talk Group</span>
+        <span>Groups</span>
       </a>
       <a href="#" class="menu-item">
         <i class="fas fa-calendar-alt"></i>
@@ -199,13 +199,15 @@
 
     <!-- Posts Container -->
     <div class="posts-container">
-      <app-post 
-        *ngFor="let post of filteredPosts" 
-        [post]="post"
-        [currentUser]="currentUser"
-        (onDelete)="deletePost(post.id.toString())"
-        (onComment)="addComment($event)">
-      </app-post>
+      <div *ngFor="let post of filteredPosts$ | async" class="post-wrapper">
+        <app-post [post]="post" 
+                 (postUpdated)="onPostUpdated($event)" 
+                 (commentAdded)="onCommentAdded($event)" 
+                 (commentDeleted)="onCommentDeleted($event)" 
+                 (commentUpdated)="onCommentUpdated($event)"
+                 (onDelete)="refreshPosts()">
+        </app-post>
+      </div>
     </div>
   </div>
 
@@ -218,7 +220,7 @@
         <a href="#">See All</a>
       </div>
       <div class="group-suggestion">
-        <img src="assets/images/group-suggestion.jpg" alt="Group suggestion">
+        <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=facearea&w=200&q=80" alt="Group suggestion">
         <div class="group-info">
           <h4>New ways to find and join communities.</h4>
           <button class="find-groups-btn">Find Your Groups</button>
@@ -228,22 +230,488 @@
 
     <!-- Contacts Section -->
     <div class="contacts-section">
-      <div class="contacts-header">
+      <div class="section-header">
         <h3>Contacts</h3>
-        <div class="header-icons">
-          <i class="fas fa-video"></i>
-          <i class="fas fa-search"></i>
-          <i class="fas fa-ellipsis-h"></i>
+        <div class="header-actions">
+          <button class="action-button">
+            <i class="fas fa-video"></i>
+          </button>
+          <button class="action-button">
+            <i class="fas fa-search"></i>
+          </button>
+          <button class="action-button">
+            <i class="fas fa-ellipsis-h"></i>
+          </button>
         </div>
       </div>
       
       <div class="contacts-list">
-        <div class="contact" *ngFor="let contact of contacts">
-          <img [src]="contact.avatarUrl" [alt]="contact.name">
+        <div class="contact-item" *ngFor="let contact of contacts">
+          <img [src]="contact.avatarUrl" [alt]="contact.name" class="contact-avatar">
           <span class="contact-name">{{contact.name}}</span>
-          <span class="online-indicator" *ngIf="contact.isOnline"></span>
         </div>
       </div>
     </div>
   </div>
 </div>
+
+<style>
+.home-container {
+  display: grid;
+  grid-template-columns: 360px 1fr 360px;
+  gap: 20px;
+  padding: 20px;
+  background-color: #f0f2f5;
+  min-height: 100vh;
+}
+
+.left-sidebar {
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.user-profile {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  margin-bottom: 20px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-name {
+  font-weight: 600;
+  color: #1c1e21;
+}
+
+.logout-button, .dashboard-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px;
+  border: none;
+  background: none;
+  color: #1c1e21;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.logout-button:hover, .dashboard-button:hover {
+  background-color: #f2f2f2;
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.menu-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  color: #1c1e21;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.menu-item:hover {
+  background-color: #e4e6eb;
+}
+
+.menu-item.active {
+  background-color: #e4e6eb;
+}
+
+.menu-item i {
+  width: 24px;
+  text-align: center;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.stories-section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.stories-header {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.stories-header span {
+  color: #65676b;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 0;
+}
+
+.stories-header span.active {
+  color: #1877f2;
+  border-bottom: 3px solid #1877f2;
+}
+
+.stories-container {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+}
+
+.story-card {
+  position: relative;
+  width: 112px;
+  height: 200px;
+  border-radius: 8px;
+  overflow: hidden;
+  cursor: pointer;
+}
+
+.story-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.add-story-button {
+  position: absolute;
+  bottom: 40px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 40px;
+  height: 40px;
+  background: #1877f2;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  border: 4px solid white;
+}
+
+.story-footer {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.8));
+  color: white;
+  font-size: 0.8em;
+}
+
+.create-post-section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.post-input {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.post-input-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.post-title-input {
+  border: none;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 12px;
+  font-size: 1.1em;
+  outline: none;
+}
+
+.post-input-text {
+  border: none;
+  background: #f0f2f5;
+  border-radius: 20px;
+  padding: 8px 12px;
+  resize: none;
+  outline: none;
+}
+
+.post-status-section {
+  margin-bottom: 16px;
+}
+
+.status-select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  background: white;
+}
+
+.post-tags-section {
+  margin-bottom: 16px;
+}
+
+.selected-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.tag {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #e4e6eb;
+  padding: 4px 8px;
+  border-radius: 16px;
+  font-size: 0.9em;
+}
+
+.remove-tag {
+  border: none;
+  background: none;
+  color: #65676b;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.add-tag {
+  display: flex;
+  gap: 8px;
+}
+
+.tag-input {
+  flex: 1;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  padding: 8px;
+  outline: none;
+}
+
+.add-tag-btn {
+  padding: 8px 16px;
+  background: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.image-preview {
+  position: relative;
+  margin-bottom: 16px;
+}
+
+.image-preview img {
+  width: 100%;
+  max-height: 300px;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+.remove-image {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.post-actions {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 16px;
+  border-top: 1px solid #e4e6eb;
+}
+
+.post-options {
+  display: flex;
+  gap: 8px;
+}
+
+.post-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: none;
+  background: none;
+  color: #65676b;
+  font-weight: 500;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.post-action:hover {
+  background-color: #f2f2f2;
+}
+
+.submit-button {
+  padding: 8px 16px;
+  background: #1877f2;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-button:disabled {
+  background: #e4e6eb;
+  cursor: not-allowed;
+}
+
+.filtering-section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.filter-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-input {
+  flex: 1;
+  min-width: 200px;
+  padding: 8px;
+  border: 1px solid #e4e6eb;
+  border-radius: 4px;
+  outline: none;
+}
+
+.my-posts-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.posts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.right-sidebar {
+  position: sticky;
+  top: 20px;
+  height: calc(100vh - 40px);
+  overflow-y: auto;
+}
+
+.contacts-section {
+  background: white;
+  border-radius: 8px;
+  padding: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.section-header h3 {
+  color: #65676b;
+  font-size: 1.1em;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.action-button {
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: none;
+  color: #65676b;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.action-button:hover {
+  background-color: #f2f2f2;
+}
+
+.contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.contact-item:hover {
+  background-color: #f2f2f2;
+}
+
+.contact-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.contact-name {
+  color: #1c1e21;
+  font-weight: 500;
+}
+</style>
